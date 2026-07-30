@@ -239,6 +239,27 @@
     .tool-arrow{display:none;}
   }
 
+  /* track record teaser */
+  .record-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+    gap:1px; background:var(--line); border:1px solid var(--line); margin-top:48px;
+  }
+  .record-stat{background:var(--panel); padding:22px 20px;}
+  .record-stat .label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim);
+    text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;
+  }
+  .record-stat .value{font-family:'IBM Plex Mono', monospace; font-size:24px; font-weight:600;}
+  .record-stat .value.bull{color:var(--bull);}
+  .record-stat .value.bear{color:var(--bear);}
+  .record-stat .value.amber{color:var(--amber);}
+  .record-empty{color:var(--dim); font-size:13.5px; margin-top:20px;}
+  .record-link{
+    display:inline-flex; align-items:center; gap:6px; margin-top:24px;
+    font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--amber);
+  }
+
   /* CTA */
   .cta-section{
     text-align:center; padding:120px clamp(20px,5vw,56px);
@@ -276,6 +297,7 @@
   <nav>
     <a href="#framework">Framework</a>
     <a href="#tools">Tools</a>
+    <a href="trades.html">Track Record</a>
     <a href="#follow" class="nav-cta">Follow</a>
   </nav>
 </header>
@@ -383,6 +405,16 @@
   </div>
 </section>
 
+<section class="section-wrap" id="record">
+  <div class="section-label">Track record</div>
+  <h2 class="section-title">Every trade, logged.</h2>
+  <p class="section-desc">Posted daily, win or loss. Full history on the track record page.</p>
+
+  <div class="record-grid" id="recordGrid"></div>
+  <p class="record-empty" id="recordEmpty" style="display:none;">No trades posted yet — check back soon.</p>
+  <a href="trades.html" class="record-link">View full trade log →</a>
+</section>
+
 <section class="cta-section" id="follow">
   <h2>Read the market<br><span class="accent">in real time.</span></h2>
   <p>No paid signals, no courses to sell. Just the charts, the structure, and the reasoning — posted as it happens.</p>
@@ -401,6 +433,40 @@
   setTimeout(() => {
     document.getElementById('bosTag').classList.add('show');
   }, 2600);
+
+  // live track-record teaser, pulled from data/trades.json
+  async function loadRecordTeaser(){
+    const grid = document.getElementById('recordGrid');
+    const empty = document.getElementById('recordEmpty');
+    try{
+      const res = await fetch('data/trades.json', { cache: 'no-store' });
+      if(!res.ok) throw new Error('missing');
+      const trades = await res.json();
+      if(!trades.length){ empty.style.display = 'block'; return; }
+
+      const total = trades.length;
+      const wins = trades.filter(t => t.result_r > 0);
+      const winRate = (wins.length / total) * 100;
+      const totalR = trades.reduce((a,t) => a + t.result_r, 0);
+      const expectancy = totalR / total;
+
+      const stats = [
+        { label: 'Total Trades', value: total, cls: '' },
+        { label: 'Win Rate', value: winRate.toFixed(1) + '%', cls: winRate >= 50 ? 'bull' : 'bear' },
+        { label: 'Expectancy', value: (expectancy >= 0 ? '+' : '') + expectancy.toFixed(2) + 'R', cls: expectancy >= 0 ? 'amber' : 'bear' },
+        { label: 'Total R', value: (totalR >= 0 ? '+' : '') + totalR.toFixed(2) + 'R', cls: totalR >= 0 ? 'bull' : 'bear' },
+      ];
+      grid.innerHTML = stats.map(s => `
+        <div class="record-stat">
+          <div class="label">${s.label}</div>
+          <div class="value ${s.cls}">${s.value}</div>
+        </div>
+      `).join('');
+    } catch(e){
+      empty.style.display = 'block';
+    }
+  }
+  loadRecordTeaser();
 </script>
 
 </body>
