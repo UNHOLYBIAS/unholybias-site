@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Record — @unholybias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0a0a0c; --panel:#141417; --panel-2:#1b1b1f; --line:#2a2a2f;
+    --amber:#f5a623; --amber-dim:#8a611a; --ink:#e8e6e1; --dim:#6b7280;
+    --bull:#3ecf8e; --bear:#e5484d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--void); color:var(--ink); font-family:'IBM Plex Sans', sans-serif;}
+  a{color:inherit; text-decoration:none;}
+
+  header{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px clamp(20px,5vw,56px);
+    background:rgba(10,10,12,0.85); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .logo{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:15px;}
+  .logo span{color:var(--amber);}
+  nav{display:flex; gap:28px; align-items:center;}
+  nav a{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--dim); letter-spacing:0.06em; text-transform:uppercase;}
+  nav a:hover{color:var(--ink);}
+  nav a.active{color:var(--amber);}
+
+  main{max-width:1100px; margin:0 auto; padding:56px clamp(20px,5vw,56px) 100px;}
+  .eyebrow{font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:0.1em; color:var(--amber); text-transform:uppercase; margin-bottom:14px;}
+  h1{font-family:'IBM Plex Mono', monospace; font-size:clamp(28px,4vw,42px); margin-bottom:12px;}
+  .lead{color:var(--dim); max-width:56ch; line-height:1.6; margin-bottom:48px;}
+
+  .stat-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr));
+    gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:56px;
+  }
+  .stat{background:var(--panel); padding:24px 20px;}
+  .stat .label{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;}
+  .stat .value{font-family:'IBM Plex Mono', monospace; font-size:28px; font-weight:600;}
+  .stat .value.bull{color:var(--bull);}
+  .stat .value.bear{color:var(--bear);}
+  .stat .value.amber{color:var(--amber);}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  thead th{
+    text-align:left; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim);
+    text-transform:uppercase; letter-spacing:0.05em; padding:10px 14px; border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top;}
+  tbody tr:hover{background:var(--panel);}
+  .dir-long{color:var(--bull); font-family:'IBM Plex Mono', monospace; font-size:12px;}
+  .dir-short{color:var(--bear); font-family:'IBM Plex Mono', monospace; font-size:12px;}
+  .r-pos{color:var(--bull); font-family:'IBM Plex Mono', monospace;}
+  .r-neg{color:var(--bear); font-family:'IBM Plex Mono', monospace;}
+  .notes-cell{color:var(--dim); max-width:320px;}
+  .sym{font-family:'IBM Plex Mono', monospace; font-weight:600;}
+
+  .empty{color:var(--dim); font-family:'IBM Plex Mono', monospace; font-size:13px; padding:40px 0; text-align:center; border:1px dashed var(--line); border-radius:4px;}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:4px;}
+
+  footer{border-top:1px solid var(--line); padding:32px clamp(20px,5vw,56px); font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--dim); text-align:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">@unholy<span>bias</span></a>
+  <nav>
+    <a href="index.html#framework">Framework</a>
+    <a href="index.html#tools">Tools</a>
+    <a href="trades.html" class="active">Track Record</a>
+  </nav>
+</header>
+
+<main>
+  <div class="eyebrow">Live · Updated as trades are posted</div>
+  <h1>Track record</h1>
+  <p class="lead">Every trade logged, win or loss, before hindsight can rewrite it. Numbers below are calculated straight from the log — nothing curated.</p>
+
+  <div class="stat-grid" id="statGrid"></div>
+
+  <div class="table-wrap">
+    <table id="tradeTable" style="display:none;">
+      <thead>
+        <tr><th>Date</th><th>Symbol</th><th>Dir</th><th>Entry</th><th>Stop</th><th>Exit</th><th>Result</th><th>Notes</th></tr>
+      </thead>
+      <tbody id="tradeBody"></tbody>
+    </table>
+    <div class="empty" id="emptyState">No trades posted yet — check back soon.</div>
+  </div>
+</main>
+
+<footer>Not financial advice. Trade your own plan.</footer>
+
+<script>
+async function loadTrades(){
+  try{
+    const res = await fetch('data/trades.json', { cache: 'no-store' });
+    if(!res.ok) throw new Error('missing');
+    return await res.json();
+  } catch(e){
+    return [];
+  }
+}
+
+function renderStats(trades){
+  const grid = document.getElementById('statGrid');
+  if(!trades.length){ grid.innerHTML = ''; return; }
+
+  const total = trades.length;
+  const wins = trades.filter(t => t.result_r > 0);
+  const losses = trades.filter(t => t.result_r < 0);
+  const winRate = (wins.length / total) * 100;
+  const avgWinR = wins.length ? wins.reduce((a,t) => a + t.result_r, 0) / wins.length : 0;
+  const avgLossR = losses.length ? losses.reduce((a,t) => a + t.result_r, 0) / losses.length : 0;
+  const totalR = trades.reduce((a,t) => a + t.result_r, 0);
+  const expectancy = totalR / total;
+
+  const stats = [
+    { label: 'Total Trades', value: total, cls: '' },
+    { label: 'Win Rate', value: winRate.toFixed(1) + '%', cls: winRate >= 50 ? 'bull' : 'bear' },
+    { label: 'Avg Win', value: '+' + avgWinR.toFixed(2) + 'R', cls: 'bull' },
+    { label: 'Avg Loss', value: avgLossR.toFixed(2) + 'R', cls: 'bear' },
+    { label: 'Expectancy', value: (expectancy >= 0 ? '+' : '') + expectancy.toFixed(2) + 'R', cls: expectancy >= 0 ? 'amber' : 'bear' },
+    { label: 'Total R', value: (totalR >= 0 ? '+' : '') + totalR.toFixed(2) + 'R', cls: totalR >= 0 ? 'bull' : 'bear' },
+  ];
+
+  grid.innerHTML = stats.map(s => `
+    <div class="stat">
+      <div class="label">${s.label}</div>
+      <div class="value ${s.cls}">${s.value}</div>
+    </div>
+  `).join('');
+}
+
+function renderTable(trades){
+  const table = document.getElementById('tradeTable');
+  const body = document.getElementById('tradeBody');
+  const empty = document.getElementById('emptyState');
+  if(!trades.length){ table.style.display='none'; empty.style.display='block'; return; }
+  table.style.display='table'; empty.style.display='none';
+
+  body.innerHTML = trades.map(t => `
+    <tr>
+      <td>${t.date}</td>
+      <td class="sym">${t.symbol}</td>
+      <td class="dir-${t.direction}">${t.direction.toUpperCase()}</td>
+      <td>${t.entry}</td>
+      <td>${t.stop}</td>
+      <td>${t.exit}</td>
+      <td class="${t.result_r >= 0 ? 'r-pos' : 'r-neg'}">${t.result_r >= 0 ? '+' : ''}${t.result_r}R</td>
+      <td class="notes-cell">${t.notes ? t.notes : ''}</td>
+    </tr>
+  `).join('');
+}
+
+loadTrades().then(trades => {
+  renderStats(trades);
+  renderTable(trades);
+});
+</script>
+</body>
+</html>
