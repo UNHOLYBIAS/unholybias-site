@@ -6,6 +6,7 @@
 <title>@unholybias — Structure. Liquidity. Execution.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --void:#0a0a0c;
@@ -239,26 +240,55 @@
     .tool-arrow{display:none;}
   }
 
-  /* track record teaser */
-  .record-grid{
+  /* TRACK RECORD */
+  .stats-grid{
     display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
-    gap:1px; background:var(--line); border:1px solid var(--line); margin-top:48px;
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:1px; background:var(--line);
+    margin-top:48px; border:1px solid var(--line);
   }
-  .record-stat{background:var(--panel); padding:22px 20px;}
-  .record-stat .label{
+  .stat-card{background:var(--panel); padding:26px 22px;}
+  .stat-label{
     font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim);
-    text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;
+    text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;
   }
-  .record-stat .value{font-family:'IBM Plex Mono', monospace; font-size:24px; font-weight:600;}
-  .record-stat .value.bull{color:var(--bull);}
-  .record-stat .value.bear{color:var(--bear);}
-  .record-stat .value.amber{color:var(--amber);}
-  .record-empty{color:var(--dim); font-size:13.5px; margin-top:20px;}
-  .record-link{
-    display:inline-flex; align-items:center; gap:6px; margin-top:24px;
-    font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--amber);
+  .stat-value{
+    font-family:'IBM Plex Mono', monospace; font-size:clamp(22px, 3vw, 30px);
+    font-weight:600;
   }
+  .stat-value.bull{color:var(--bull);}
+  .stat-value.bear{color:var(--bear);}
+
+  .trades-list{margin-top:40px; display:flex; flex-direction:column;}
+  .trade-row{
+    display:grid; grid-template-columns:90px 70px 60px 1fr 70px;
+    align-items:center; gap:16px;
+    padding:16px 0; border-top:1px solid var(--line);
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+  }
+  .trade-row:last-child{border-bottom:1px solid var(--line);}
+  .trade-ticker{font-weight:600; font-size:14px; font-family:'IBM Plex Sans', sans-serif;}
+  .pill{font-size:11px; padding:2px 8px; border-radius:2px; width:fit-content;}
+  .pill.long{color:var(--bull); border:1px solid rgba(62,207,142,.35); background:rgba(62,207,142,.08);}
+  .pill.short{color:var(--bear); border:1px solid rgba(229,72,77,.35); background:rgba(229,72,77,.08);}
+  .trade-notes{color:var(--dim); font-family:'IBM Plex Sans', sans-serif; font-size:13px;}
+  .trade-r{text-align:right;}
+  .trade-r.win{color:var(--bull);}
+  .trade-r.loss{color:var(--bear);}
+  .trade-r.open{color:var(--dim);}
+  @media (max-width:640px){
+    .trade-row{grid-template-columns:1fr 1fr; grid-auto-rows:auto; row-gap:4px;}
+    .trade-notes{grid-column:1 / -1;}
+  }
+
+  .watchlist-chips{display:flex; flex-wrap:wrap; gap:10px; margin-top:32px;}
+  .chip{
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+    border:1px solid var(--line); background:var(--panel);
+    padding:8px 14px; border-radius:2px;
+  }
+  .chip b{color:var(--amber);}
+  .empty-note{color:var(--dim); font-size:14px; margin-top:24px; font-style:italic;}
 
   /* CTA */
   .cta-section{
@@ -295,9 +325,9 @@
 <header>
   <div class="logo">@unholy<span>bias</span></div>
   <nav>
+    <a href="#trackrecord">Track Record</a>
     <a href="#framework">Framework</a>
     <a href="#tools">Tools</a>
-    <a href="trades.html">Track Record</a>
     <a href="#follow" class="nav-cta">Follow</a>
   </nav>
 </header>
@@ -332,6 +362,41 @@
       <circle class="marker" cx="400" cy="175" r="4" fill="none" stroke="#e8e6e1" style="animation-delay:1.6s"/>
       <text class="marker" x="386" y="200" font-family="IBM Plex Mono" font-size="11" fill="#6b7280" style="animation-delay:1.6s">HL</text>
     </svg>
+  </div>
+</section>
+
+<section class="section-wrap" id="trackrecord">
+  <div class="section-label">Track Record</div>
+  <h2 class="section-title">Posted, not promised.</h2>
+  <p class="section-desc">Every trade logged with entry, stop, and result — win rate and R:R calculated automatically, updated as soon as it's posted.</p>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Win Rate</div>
+      <div class="stat-value" id="statWinRate">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg R:R</div>
+      <div class="stat-value" id="statAvgR">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Closed Trades</div>
+      <div class="stat-value" id="statClosed">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Open Positions</div>
+      <div class="stat-value" id="statOpen">—</div>
+    </div>
+  </div>
+
+  <h3 class="section-label" style="margin-top:56px;">Recent Trades</h3>
+  <div class="trades-list" id="tradesList">
+    <p class="empty-note">Loading...</p>
+  </div>
+
+  <h3 class="section-label" style="margin-top:56px;">Watchlist</h3>
+  <div class="watchlist-chips" id="watchlistChips">
+    <p class="empty-note">Loading...</p>
   </div>
 </section>
 
@@ -405,16 +470,6 @@
   </div>
 </section>
 
-<section class="section-wrap" id="record">
-  <div class="section-label">Track record</div>
-  <h2 class="section-title">Every trade, logged.</h2>
-  <p class="section-desc">Posted daily, win or loss. Full history on the track record page.</p>
-
-  <div class="record-grid" id="recordGrid"></div>
-  <p class="record-empty" id="recordEmpty" style="display:none;">No trades posted yet — check back soon.</p>
-  <a href="trades.html" class="record-link">View full trade log →</a>
-</section>
-
 <section class="cta-section" id="follow">
   <h2>Read the market<br><span class="accent">in real time.</span></h2>
   <p>No paid signals, no courses to sell. Just the charts, the structure, and the reasoning — posted as it happens.</p>
@@ -434,39 +489,103 @@
     document.getElementById('bosTag').classList.add('show');
   }, 2600);
 
-  // live track-record teaser, pulled from data/trades.json
-  async function loadRecordTeaser(){
-    const grid = document.getElementById('recordGrid');
-    const empty = document.getElementById('recordEmpty');
-    try{
-      const res = await fetch('data/trades.json', { cache: 'no-store' });
-      if(!res.ok) throw new Error('missing');
-      const trades = await res.json();
-      if(!trades.length){ empty.style.display = 'block'; return; }
+  // ── 1. FILL THESE IN after creating your Supabase project (same values as admin.html) ──
+  const SUPABASE_URL = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  const SUPABASE_ANON_KEY = "sb_secret_zpSKx7bgAQmcmyesfadz-g_7cdsvXxL";
+  // ─────────────────────────────────────────────────────────────────────────────────────
 
-      const total = trades.length;
-      const wins = trades.filter(t => t.result_r > 0);
-      const winRate = (wins.length / total) * 100;
-      const totalR = trades.reduce((a,t) => a + t.result_r, 0);
-      const expectancy = totalR / total;
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      const stats = [
-        { label: 'Total Trades', value: total, cls: '' },
-        { label: 'Win Rate', value: winRate.toFixed(1) + '%', cls: winRate >= 50 ? 'bull' : 'bear' },
-        { label: 'Expectancy', value: (expectancy >= 0 ? '+' : '') + expectancy.toFixed(2) + 'R', cls: expectancy >= 0 ? 'amber' : 'bear' },
-        { label: 'Total R', value: (totalR >= 0 ? '+' : '') + totalR.toFixed(2) + 'R', cls: totalR >= 0 ? 'bull' : 'bear' },
-      ];
-      grid.innerHTML = stats.map(s => `
-        <div class="record-stat">
-          <div class="label">${s.label}</div>
-          <div class="value ${s.cls}">${s.value}</div>
-        </div>
-      `).join('');
-    } catch(e){
-      empty.style.display = 'block';
-    }
+  function calcR(direction, entry, stop, exitOrTarget){
+    const risk = Math.abs(entry - stop);
+    if (!risk || exitOrTarget == null || isNaN(exitOrTarget)) return null;
+    const reward = direction === 'long' ? (exitOrTarget - entry) : (entry - exitOrTarget);
+    return reward / risk;
   }
-  loadRecordTeaser();
+
+  async function loadTrackRecord(){
+    const { data: trades, error } = await sb
+      .from('trades')
+      .select('*')
+      .order('trade_date', { ascending: false })
+      .limit(20);
+
+    const listEl = document.getElementById('tradesList');
+
+    if (error || !trades){
+      listEl.innerHTML = '<p class="empty-note">Track record loads once the database is connected.</p>';
+      document.getElementById('statWinRate').textContent = '—';
+      document.getElementById('statAvgR').textContent = '—';
+      document.getElementById('statClosed').textContent = '—';
+      document.getElementById('statOpen').textContent = '—';
+      return;
+    }
+
+    if (trades.length === 0){
+      listEl.innerHTML = '<p class="empty-note">No trades posted yet.</p>';
+    }
+
+    const closed = trades.filter(t => t.exit != null);
+    const open = trades.filter(t => t.exit == null);
+    const rMultiples = closed.map(t => calcR(t.direction, t.entry, t.stop, t.exit)).filter(r => r !== null);
+    const wins = rMultiples.filter(r => r > 0).length;
+    const winRate = rMultiples.length ? (wins / rMultiples.length * 100) : null;
+    const avgR = rMultiples.length ? (rMultiples.reduce((a,b) => a+b, 0) / rMultiples.length) : null;
+
+    document.getElementById('statWinRate').textContent = winRate !== null ? winRate.toFixed(0) + '%' : '—';
+    document.getElementById('statWinRate').className = 'stat-value' + (winRate !== null ? (winRate >= 50 ? ' bull' : ' bear') : '');
+    document.getElementById('statAvgR').textContent = avgR !== null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
+    document.getElementById('statAvgR').className = 'stat-value' + (avgR !== null ? (avgR >= 0 ? ' bull' : ' bear') : '');
+    document.getElementById('statClosed').textContent = closed.length;
+    document.getElementById('statOpen').textContent = open.length;
+
+    listEl.innerHTML = '';
+    trades.forEach(t => {
+      const r = t.exit != null ? calcR(t.direction, t.entry, t.stop, t.exit) : calcR(t.direction, t.entry, t.stop, t.target);
+      const rLabel = t.exit != null
+        ? (r !== null ? (r >= 0 ? '+' : '') + r.toFixed(2) + 'R' : '—')
+        : (r !== null ? r.toFixed(2) + 'R plan' : '—');
+      const rClass = t.exit == null ? 'open' : (r > 0 ? 'win' : r < 0 ? 'loss' : '');
+      const row = document.createElement('div');
+      row.className = 'trade-row';
+      row.innerHTML = `
+        <span>${t.trade_date}</span>
+        <span class="trade-ticker">${t.ticker}</span>
+        <span class="pill ${t.direction}">${t.direction}</span>
+        <span class="trade-notes">${t.notes ?? ''}</span>
+        <span class="trade-r ${rClass}">${rLabel}</span>
+      `;
+      listEl.appendChild(row);
+    });
+  }
+
+  async function loadWatchlist(){
+    const { data: items, error } = await sb
+      .from('watchlist')
+      .select('*')
+      .order('watch_date', { ascending: false })
+      .limit(12);
+
+    const el = document.getElementById('watchlistChips');
+    if (error || !items){
+      el.innerHTML = '<p class="empty-note">Watchlist loads once the database is connected.</p>';
+      return;
+    }
+    if (items.length === 0){
+      el.innerHTML = '<p class="empty-note">Nothing on the watchlist yet.</p>';
+      return;
+    }
+    el.innerHTML = '';
+    items.forEach(w => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.innerHTML = `<b>${w.ticker}</b> ${w.note ? '— ' + w.note : ''}`;
+      el.appendChild(chip);
+    });
+  }
+
+  loadTrackRecord();
+  loadWatchlist();
 </script>
 
 </body>
