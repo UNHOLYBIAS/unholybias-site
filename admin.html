@@ -56,6 +56,15 @@
   .pill.short{color:var(--bear); border:1px solid rgba(229,72,77,.35); background:rgba(229,72,77,.08);}
   #app{display:none;}
   #loginBox{max-width:380px; margin:120px auto 0;}
+  .stat-row{display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:20px;}
+  @media (max-width:600px){ .stat-row{grid-template-columns:1fr 1fr;} }
+  .stat-box{background:var(--panel-2); border:1px solid var(--line); border-radius:2px; padding:16px;}
+  .stat-box .sb-label{font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;}
+  .stat-box .sb-value{font-family:'IBM Plex Mono', monospace; font-size:24px; font-weight:600;}
+  .bar-chart{width:100%; height:110px; display:block; margin-top:4px;}
+  .bar-chart rect{transition:opacity .15s ease;}
+  .bar-chart rect:hover{opacity:0.7;}
+  .chart-axis-label{font-family:'IBM Plex Mono', monospace; font-size:10px; fill:var(--dim);}
 </style>
 </head>
 <body>
@@ -75,6 +84,19 @@
 
 <div class="wrap" id="app">
   <div class="logo">@unholy<span>bias</span> · admin &nbsp;<a href="index.html" style="font-size:12px;">← back to site</a> &nbsp;<a href="#" onclick="doLogout();return false;" style="font-size:12px;">sign out</a></div>
+
+  <h1>Analytics</h1>
+  <div class="panel">
+    <div class="stat-row">
+      <div class="stat-box"><div class="sb-label">Total Views</div><div class="sb-value" id="an_total">—</div></div>
+      <div class="stat-box"><div class="sb-label">Unique Visitors</div><div class="sb-value" id="an_unique">—</div></div>
+      <div class="stat-box"><div class="sb-label">Views Today</div><div class="sb-value" id="an_today">—</div></div>
+      <div class="stat-box"><div class="sb-label">Views This Week</div><div class="sb-value" id="an_week">—</div></div>
+    </div>
+    <div class="sb-label" style="margin-bottom:6px;">Last 30 days</div>
+    <svg class="bar-chart" id="an_chart" viewBox="0 0 620 110" preserveAspectRatio="none"></svg>
+    <div class="msg" id="analyticsMsg"></div>
+  </div>
 
   <h1>Post a trade</h1>
   <div class="panel">
@@ -134,8 +156,8 @@
   // ── FILL THESE IN from your Supabase project (Settings → API) ──
   // Project URL looks like: https://xxxxxxxxxxxx.supabase.co
   // Use the "publishable" / "anon" key here — NEVER the secret / service_role key.
-  const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  const SUPABASE_URL = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  const SUPABASE_ANON_KEY = "sb_secret_zpSKx7bgAQmcmyesfadz-g_7cdsvXxL";
   // ─────────────────────────────────────────────────────────────
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -148,6 +170,7 @@
     if (session){
       document.getElementById('loginWrap').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      loadAnalytics();
       loadTrades();
       loadWatchlist();
     } else {
@@ -156,6 +179,67 @@
     }
   }
   checkSession();
+
+  async function loadAnalytics(){
+    const msg = document.getElementById('analyticsMsg');
+    const { count: totalCount, error: countErr } = await sb
+      .from('page_views')
+      .select('*', { count: 'exact', head: true });
+
+    const { data: rows, error: rowsErr } = await sb
+      .from('page_views')
+      .select('visitor_id, viewed_at')
+      .order('viewed_at', { ascending: false })
+      .limit(5000);
+
+    if (countErr || rowsErr || !rows){
+      document.getElementById('an_total').textContent = '—';
+      document.getElementById('an_unique').textContent = '—';
+      document.getElementById('an_today').textContent = '—';
+      document.getElementById('an_week').textContent = '—';
+      msg.className = 'msg err';
+      msg.textContent = 'Analytics unavailable — check that the page_views table and its policies exist.';
+      return;
+    }
+    msg.textContent = '';
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const uniqueVisitors = new Set(rows.map(r => r.visitor_id)).size;
+    const viewsToday = rows.filter(r => r.viewed_at.slice(0, 10) === todayStr).length;
+    const viewsWeek = rows.filter(r => new Date(r.viewed_at) >= weekAgo).length;
+
+    document.getElementById('an_total').textContent = (totalCount ?? rows.length).toLocaleString();
+    document.getElementById('an_unique').textContent = uniqueVisitors.toLocaleString();
+    document.getElementById('an_today').textContent = viewsToday.toLocaleString();
+    document.getElementById('an_week').textContent = viewsWeek.toLocaleString();
+
+    // build a day -> count map for the last 30 days
+    const days = [];
+    for (let i = 29; i >= 0; i--){
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const counts = Object.fromEntries(days.map(d => [d, 0]));
+    rows.forEach(r => {
+      const day = r.viewed_at.slice(0, 10);
+      if (day in counts) counts[day]++;
+    });
+
+    const values = days.map(d => counts[d]);
+    const max = Math.max(1, ...values);
+    const W = 620, H = 110, barGap = 2;
+    const barW = (W / values.length) - barGap;
+    const bars = values.map((v, i) => {
+      const h = (v / max) * (H - 16);
+      const x = i * (W / values.length);
+      const y = H - h;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="var(--amber)" opacity="0.85" rx="1"><title>${days[i]}: ${v} view${v===1?'':'s'}</title></rect>`;
+    }).join('');
+    document.getElementById('an_chart').innerHTML = bars;
+  }
 
   async function doLogin(){
     const email = document.getElementById('loginEmail').value.trim();
