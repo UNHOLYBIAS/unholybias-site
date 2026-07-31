@@ -10,8 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --void:#0a0a0c; --panel:#141417; --panel-2:#1b1b1f; --line:#2a2a2f;
-    --amber:#f5a623; --amber-dim:#8a611a; --ink:#e8e6e1; --dim:#6b7280;
+    --void:#08080a; --panel:#111114; --panel-2:#17171b; --line:#242429;
+    --amber:#f2a53d; --amber-dim:#8a611a; --ink:#ece9e2; --dim:#82818c;
     --bull:#3ecf8e; --bear:#e5484d;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -92,6 +92,8 @@
     </div>
     <label>Exit (leave blank if still open)</label>
     <input type="number" step="any" id="t_exit">
+    <label>P&amp;L ($) — drives the site's account equity curve, leave blank if still open</label>
+    <input type="number" step="any" id="t_pnl" placeholder="e.g. 215.50 or -80">
     <label>Notes</label>
     <textarea id="t_notes" placeholder="Setup notes, structure, reasoning..."></textarea>
     <div class="rr-preview" id="rrPreview">Fill in entry/stop/target or exit to see R:R</div>
@@ -114,7 +116,7 @@
   <h1>Your trades</h1>
   <div class="panel">
     <table>
-      <thead><tr><th>Date</th><th>Ticker</th><th>Dir</th><th>Entry</th><th>Stop</th><th>Exit</th><th>R</th><th></th></tr></thead>
+      <thead><tr><th>Date</th><th>Ticker</th><th>Dir</th><th>Entry</th><th>Stop</th><th>Exit</th><th>P&amp;L</th><th>R</th><th></th></tr></thead>
       <tbody id="tradeTableBody"></tbody>
     </table>
   </div>
@@ -129,10 +131,12 @@
 </div>
 
 <script>
-  // ── 1. FILL THESE IN after creating your Supabase project ──
+  // ── FILL THESE IN from your Supabase project (Settings → API) ──
+  // Project URL looks like: https://xxxxxxxxxxxx.supabase.co
+  // Use the "publishable" / "anon" key here — NEVER the secret / service_role key.
   const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
-  // ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -204,6 +208,7 @@
       stop: parseFloat(document.getElementById('t_stop').value),
       target: document.getElementById('t_target').value ? parseFloat(document.getElementById('t_target').value) : null,
       exit: document.getElementById('t_exit').value ? parseFloat(document.getElementById('t_exit').value) : null,
+      pnl_usd: document.getElementById('t_pnl').value ? parseFloat(document.getElementById('t_pnl').value) : null,
       notes: document.getElementById('t_notes').value.trim() || null
     };
     const msg = document.getElementById('tradeMsg');
@@ -218,6 +223,7 @@
     document.getElementById('t_stop').value='';
     document.getElementById('t_target').value='';
     document.getElementById('t_exit').value='';
+    document.getElementById('t_pnl').value='';
     document.getElementById('t_notes').value='';
     updateRRPreview();
     loadTrades();
@@ -246,10 +252,12 @@
     if (error || !data) return;
     data.forEach(t => {
       const r = t.exit != null ? calcR(t.direction, t.entry, t.stop, t.exit) : null;
+      const pnlLabel = t.pnl_usd != null ? `<span style="color:${t.pnl_usd >= 0 ? 'var(--bull)' : 'var(--bear)'}">${t.pnl_usd >= 0 ? '+' : ''}$${Number(t.pnl_usd).toFixed(2)}</span>` : '—';
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${t.trade_date}</td><td>${t.ticker}</td>
         <td><span class="pill ${t.direction}">${t.direction}</span></td>
         <td>${t.entry}</td><td>${t.stop}</td><td>${t.exit ?? '—'}</td>
+        <td>${pnlLabel}</td>
         <td>${r !== null ? r.toFixed(2)+'R' : '—'}</td>
         <td><button class="btn btn-danger" onclick="deleteTrade('${t.id}')">delete</button></td>`;
       body.appendChild(tr);
