@@ -526,8 +526,8 @@
   // ── FILL THESE IN from your Supabase project (Settings → API) ──
   // Project URL looks like: https://xxxxxxxxxxxx.supabase.co
   // Use the "publishable" / "anon" key here — NEVER the secret / service_role key.
-  const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  const SUPABASE_URL = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  const SUPABASE_ANON_KEY = "sb_secret_zpSKx7bgAQmcmyesfadz-g_7cdsvXxL";
   // ─────────────────────────────────────────────────────────────
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -727,6 +727,20 @@
 
   loadTrackRecord();
   loadWatchlist();
+  logPageView();
+
+  // Fire-and-forget view tracking for the private admin analytics dashboard.
+  // Fails silently if the page_views table / policies aren't set up yet.
+  function logPageView(){
+    try {
+      let visitorId = localStorage.getItem('ub_visitor_id');
+      if (!visitorId){
+        visitorId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+        localStorage.setItem('ub_visitor_id', visitorId);
+      }
+      sb.from('page_views').insert({ visitor_id: visitorId, path: location.pathname }).then(() => {});
+    } catch (e) { /* analytics should never break the page */ }
+  }
 </script>
 
 </body>
