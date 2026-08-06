@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — @unholybias</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --void:#08080a; --panel:#111114; --panel-2:#17171b; --line:#242429;
+    --amber:#f2a53d; --amber-dim:#8a611a; --ink:#ece9e2; --dim:#82818c;
+    --bull:#3ecf8e; --bear:#e5484d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--void); color:var(--ink); font-family:'IBM Plex Sans', sans-serif; min-height:100vh;}
+  a{color:var(--amber);}
+  .wrap{max-width:900px; margin:0 auto; padding:56px 20px 100px;}
+  .logo{font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:15px; margin-bottom:40px;}
+  .logo span{color:var(--amber);}
+  h1{font-family:'IBM Plex Mono', monospace; font-size:22px; margin-bottom:24px;}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:28px; margin-bottom:28px;}
+  label{display:block; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim); letter-spacing:0.05em; text-transform:uppercase; margin-bottom:6px; margin-top:16px;}
+  label:first-child{margin-top:0;}
+  input, select, textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+    padding:10px 12px; border-radius:2px; font-family:'IBM Plex Sans', sans-serif; font-size:14px;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  input:focus, select:focus, textarea:focus{outline:1px solid var(--amber); border-color:var(--amber);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+  @media (max-width:600px){ .row2, .row3{grid-template-columns:1fr;} }
+  .btn{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; padding:12px 22px; border-radius:2px;
+    background:var(--amber); color:var(--void); font-weight:600; border:none; cursor:pointer; margin-top:20px;
+  }
+  .btn:hover{background:#ffb84d;}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--ink); font-weight:400;}
+  .btn-danger{background:transparent; border:1px solid var(--bear); color:var(--bear); font-weight:400; padding:6px 12px; font-size:12px; margin-top:0;}
+  .rr-preview{
+    margin-top:16px; padding:12px 16px; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:2px; font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--dim);
+  }
+  .rr-preview b{color:var(--amber);}
+  .msg{font-family:'IBM Plex Mono', monospace; font-size:12px; margin-top:12px;}
+  .msg.ok{color:var(--bull);}
+  .msg.err{color:var(--bear);}
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  th, td{text-align:left; padding:10px 8px; border-bottom:1px solid var(--line);}
+  th{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;}
+  .pill{font-family:'IBM Plex Mono', monospace; font-size:11px; padding:2px 8px; border-radius:2px;}
+  .pill.long{color:var(--bull); border:1px solid rgba(62,207,142,.35); background:rgba(62,207,142,.08);}
+  .pill.short{color:var(--bear); border:1px solid rgba(229,72,77,.35); background:rgba(229,72,77,.08);}
+  #app{display:none;}
+  #loginBox{max-width:380px; margin:120px auto 0;}
+  .stat-row{display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:20px;}
+  @media (max-width:600px){ .stat-row{grid-template-columns:1fr 1fr;} }
+  .stat-box{background:var(--panel-2); border:1px solid var(--line); border-radius:2px; padding:16px;}
+  .stat-box .sb-label{font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;}
+  .stat-box .sb-value{font-family:'IBM Plex Mono', monospace; font-size:24px; font-weight:600;}
+  .bar-chart{width:100%; height:110px; display:block; margin-top:4px;}
+  .bar-chart rect{transition:opacity .15s ease;}
+  .bar-chart rect:hover{opacity:0.7;}
+  .chart-axis-label{font-family:'IBM Plex Mono', monospace; font-size:10px; fill:var(--dim);}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="loginWrap">
+  <div class="logo">@unholy<span>bias</span> · admin</div>
+  <div class="panel" id="loginBox">
+    <h1 style="font-size:16px;">Sign in</h1>
+    <label>Email</label>
+    <input type="email" id="loginEmail">
+    <label>Password</label>
+    <input type="password" id="loginPass">
+    <button class="btn" onclick="doLogin()">Sign in</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="logo">@unholy<span>bias</span> · admin &nbsp;<a href="index.html" style="font-size:12px;">← back to site</a> &nbsp;<a href="#" onclick="doLogout();return false;" style="font-size:12px;">sign out</a></div>
+
+  <h1>Analytics</h1>
+  <div class="panel">
+    <div class="stat-row">
+      <div class="stat-box"><div class="sb-label">Total Views</div><div class="sb-value" id="an_total">—</div></div>
+      <div class="stat-box"><div class="sb-label">Unique Visitors</div><div class="sb-value" id="an_unique">—</div></div>
+      <div class="stat-box"><div class="sb-label">Views Today</div><div class="sb-value" id="an_today">—</div></div>
+      <div class="stat-box"><div class="sb-label">Views This Week</div><div class="sb-value" id="an_week">—</div></div>
+    </div>
+    <div class="sb-label" style="margin-bottom:6px;">Last 30 days</div>
+    <svg class="bar-chart" id="an_chart" viewBox="0 0 620 110" preserveAspectRatio="none"></svg>
+    <div class="msg" id="analyticsMsg"></div>
+  </div>
+
+  <h1>Post a trade</h1>
+  <div class="panel">
+    <div class="row3">
+      <div><label>Date</label><input type="date" id="t_date"></div>
+      <div><label>Ticker</label><input type="text" id="t_ticker" placeholder="TSLA" style="text-transform:uppercase;"></div>
+      <div><label>Direction</label>
+        <select id="t_dir"><option value="long">Long</option><option value="short">Short</option></select>
+      </div>
+    </div>
+    <div class="row3">
+      <div><label>Entry</label><input type="number" step="any" id="t_entry"></div>
+      <div><label>Stop</label><input type="number" step="any" id="t_stop"></div>
+      <div><label>Target (planned)</label><input type="number" step="any" id="t_target"></div>
+    </div>
+    <label>Exit (leave blank if still open)</label>
+    <input type="number" step="any" id="t_exit">
+    <label>P&amp;L ($) — drives the site's account equity curve, leave blank if still open</label>
+    <input type="number" step="any" id="t_pnl" placeholder="e.g. 215.50 or -80">
+    <label>Notes</label>
+    <textarea id="t_notes" placeholder="Setup notes, structure, reasoning..."></textarea>
+    <div class="rr-preview" id="rrPreview">Fill in entry/stop/target or exit to see R:R</div>
+    <button class="btn" onclick="submitTrade()">Post trade</button>
+    <div class="msg" id="tradeMsg"></div>
+  </div>
+
+  <h1>Post to watchlist</h1>
+  <div class="panel">
+    <div class="row2">
+      <div><label>Date</label><input type="date" id="w_date"></div>
+      <div><label>Ticker</label><input type="text" id="w_ticker" placeholder="NVDA" style="text-transform:uppercase;"></div>
+    </div>
+    <label>Note</label>
+    <textarea id="w_note" placeholder="Why it's on the radar..."></textarea>
+    <button class="btn" onclick="submitWatchlist()">Add to watchlist</button>
+    <div class="msg" id="watchMsg"></div>
+  </div>
+
+  <h1>Your trades</h1>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Date</th><th>Ticker</th><th>Dir</th><th>Entry</th><th>Stop</th><th>Exit</th><th>P&amp;L</th><th>R</th><th></th></tr></thead>
+      <tbody id="tradeTableBody"></tbody>
+    </table>
+  </div>
+
+  <h1>Watchlist entries</h1>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Date</th><th>Ticker</th><th>Note</th><th></th></tr></thead>
+      <tbody id="watchTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // ── FILL THESE IN from your Supabase project (Settings → API) ──
+  // Project URL looks like: https://xxxxxxxxxxxx.supabase.co
+  // Use the "publishable" / "anon" key here — NEVER the secret / service_role key.
+  const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  // ─────────────────────────────────────────────────────────────
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  document.getElementById('t_date').valueAsDate = new Date();
+  document.getElementById('w_date').valueAsDate = new Date();
+
+  async function checkSession(){
+    const { data: { session } } = await sb.auth.getSession();
+    if (session){
+      document.getElementById('loginWrap').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadAnalytics();
+      loadTrades();
+      loadWatchlist();
+    } else {
+      document.getElementById('loginWrap').style.display = 'block';
+      document.getElementById('app').style.display = 'none';
+    }
+  }
+  checkSession();
+
+  async function loadAnalytics(){
+    const msg = document.getElementById('analyticsMsg');
+    const { count: totalCount, error: countErr } = await sb
+      .from('page_views')
+      .select('*', { count: 'exact', head: true });
+
+    const { data: rows, error: rowsErr } = await sb
+      .from('page_views')
+      .select('visitor_id, viewed_at')
+      .order('viewed_at', { ascending: false })
+      .limit(5000);
+
+    if (countErr || rowsErr || !rows){
+      document.getElementById('an_total').textContent = '—';
+      document.getElementById('an_unique').textContent = '—';
+      document.getElementById('an_today').textContent = '—';
+      document.getElementById('an_week').textContent = '—';
+      msg.className = 'msg err';
+      msg.textContent = 'Analytics unavailable — check that the page_views table and its policies exist.';
+      return;
+    }
+    msg.textContent = '';
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const uniqueVisitors = new Set(rows.map(r => r.visitor_id)).size;
+    const viewsToday = rows.filter(r => r.viewed_at.slice(0, 10) === todayStr).length;
+    const viewsWeek = rows.filter(r => new Date(r.viewed_at) >= weekAgo).length;
+
+    document.getElementById('an_total').textContent = (totalCount ?? rows.length).toLocaleString();
+    document.getElementById('an_unique').textContent = uniqueVisitors.toLocaleString();
+    document.getElementById('an_today').textContent = viewsToday.toLocaleString();
+    document.getElementById('an_week').textContent = viewsWeek.toLocaleString();
+
+    // build a day -> count map for the last 30 days
+    const days = [];
+    for (let i = 29; i >= 0; i--){
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const counts = Object.fromEntries(days.map(d => [d, 0]));
+    rows.forEach(r => {
+      const day = r.viewed_at.slice(0, 10);
+      if (day in counts) counts[day]++;
+    });
+
+    const values = days.map(d => counts[d]);
+    const max = Math.max(1, ...values);
+    const W = 620, H = 110, barGap = 2;
+    const barW = (W / values.length) - barGap;
+    const bars = values.map((v, i) => {
+      const h = (v / max) * (H - 16);
+      const x = i * (W / values.length);
+      const y = H - h;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="var(--amber)" opacity="0.85" rx="1"><title>${days[i]}: ${v} view${v===1?'':'s'}</title></rect>`;
+    }).join('');
+    document.getElementById('an_chart').innerHTML = bars;
+  }
+
+  async function doLogin(){
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    const msg = document.getElementById('loginMsg');
+    if (error){ msg.className='msg err'; msg.textContent = error.message; }
+    else { checkSession(); }
+  }
+  async function doLogout(){
+    await sb.auth.signOut();
+    checkSession();
+  }
+
+  function calcR(direction, entry, stop, exitOrTarget){
+    const risk = Math.abs(entry - stop);
+    if (!risk || isNaN(exitOrTarget)) return null;
+    const reward = direction === 'long' ? (exitOrTarget - entry) : (entry - exitOrTarget);
+    return reward / risk;
+  }
+
+  function updateRRPreview(){
+    const dir = document.getElementById('t_dir').value;
+    const entry = parseFloat(document.getElementById('t_entry').value);
+    const stop = parseFloat(document.getElementById('t_stop').value);
+    const target = parseFloat(document.getElementById('t_target').value);
+    const exit = parseFloat(document.getElementById('t_exit').value);
+    const el = document.getElementById('rrPreview');
+    let out = [];
+    if (!isNaN(entry) && !isNaN(stop) && !isNaN(target)){
+      const r = calcR(dir, entry, stop, target);
+      if (r !== null) out.push(`Planned R:R — <b>${r.toFixed(2)}R</b>`);
+    }
+    if (!isNaN(entry) && !isNaN(stop) && !isNaN(exit)){
+      const r = calcR(dir, entry, stop, exit);
+      if (r !== null) out.push(`Actual result — <b>${r.toFixed(2)}R</b> (${r > 0 ? 'win' : r < 0 ? 'loss' : 'breakeven'})`);
+    }
+    el.innerHTML = out.length ? out.join(' &nbsp;|&nbsp; ') : 'Fill in entry/stop/target or exit to see R:R';
+  }
+  ['t_dir','t_entry','t_stop','t_target','t_exit'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateRRPreview)
+  );
+
+  async function submitTrade(){
+    const payload = {
+      trade_date: document.getElementById('t_date').value,
+      ticker: document.getElementById('t_ticker').value.trim().toUpperCase(),
+      direction: document.getElementById('t_dir').value,
+      entry: parseFloat(document.getElementById('t_entry').value),
+      stop: parseFloat(document.getElementById('t_stop').value),
+      target: document.getElementById('t_target').value ? parseFloat(document.getElementById('t_target').value) : null,
+      exit: document.getElementById('t_exit').value ? parseFloat(document.getElementById('t_exit').value) : null,
+      pnl_usd: document.getElementById('t_pnl').value ? parseFloat(document.getElementById('t_pnl').value) : null,
+      notes: document.getElementById('t_notes').value.trim() || null
+    };
+    const msg = document.getElementById('tradeMsg');
+    if (!payload.ticker || isNaN(payload.entry) || isNaN(payload.stop)){
+      msg.className='msg err'; msg.textContent='Ticker, entry, and stop are required.'; return;
+    }
+    const { error } = await sb.from('trades').insert(payload);
+    if (error){ msg.className='msg err'; msg.textContent = error.message; return; }
+    msg.className='msg ok'; msg.textContent='Trade posted.';
+    document.getElementById('t_ticker').value='';
+    document.getElementById('t_entry').value='';
+    document.getElementById('t_stop').value='';
+    document.getElementById('t_target').value='';
+    document.getElementById('t_exit').value='';
+    document.getElementById('t_pnl').value='';
+    document.getElementById('t_notes').value='';
+    updateRRPreview();
+    loadTrades();
+  }
+
+  async function submitWatchlist(){
+    const payload = {
+      watch_date: document.getElementById('w_date').value,
+      ticker: document.getElementById('w_ticker').value.trim().toUpperCase(),
+      note: document.getElementById('w_note').value.trim() || null
+    };
+    const msg = document.getElementById('watchMsg');
+    if (!payload.ticker){ msg.className='msg err'; msg.textContent='Ticker is required.'; return; }
+    const { error } = await sb.from('watchlist').insert(payload);
+    if (error){ msg.className='msg err'; msg.textContent = error.message; return; }
+    msg.className='msg ok'; msg.textContent='Added to watchlist.';
+    document.getElementById('w_ticker').value='';
+    document.getElementById('w_note').value='';
+    loadWatchlist();
+  }
+
+  async function loadTrades(){
+    const { data, error } = await sb.from('trades').select('*').order('trade_date', { ascending: false }).limit(50);
+    const body = document.getElementById('tradeTableBody');
+    body.innerHTML = '';
+    if (error || !data) return;
+    data.forEach(t => {
+      const r = t.exit != null ? calcR(t.direction, t.entry, t.stop, t.exit) : null;
+      const pnlLabel = t.pnl_usd != null ? `<span style="color:${t.pnl_usd >= 0 ? 'var(--bull)' : 'var(--bear)'}">${t.pnl_usd >= 0 ? '+' : ''}$${Number(t.pnl_usd).toFixed(2)}</span>` : '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${t.trade_date}</td><td>${t.ticker}</td>
+        <td><span class="pill ${t.direction}">${t.direction}</span></td>
+        <td>${t.entry}</td><td>${t.stop}</td><td>${t.exit ?? '—'}</td>
+        <td>${pnlLabel}</td>
+        <td>${r !== null ? r.toFixed(2)+'R' : '—'}</td>
+        <td><button class="btn btn-danger" onclick="deleteTrade('${t.id}')">delete</button></td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  async function deleteTrade(id){
+    if (!confirm('Delete this trade?')) return;
+    await sb.from('trades').delete().eq('id', id);
+    loadTrades();
+  }
+
+  async function loadWatchlist(){
+    const { data, error } = await sb.from('watchlist').select('*').order('watch_date', { ascending: false }).limit(50);
+    const body = document.getElementById('watchTableBody');
+    body.innerHTML = '';
+    if (error || !data) return;
+    data.forEach(w => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${w.watch_date}</td><td>${w.ticker}</td><td>${w.note ?? ''}</td>
+        <td><button class="btn btn-danger" onclick="deleteWatch('${w.id}')">delete</button></td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  async function deleteWatch(id){
+    if (!confirm('Delete this watchlist entry?')) return;
+    await sb.from('watchlist').delete().eq('id', id);
+    loadWatchlist();
+  }
+</script>
+</body>
+</html>
