@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>@unholybias — Structure. Liquidity. Execution.</title>
+<meta name="description" content="Intraday setups on Nasdaq and large-cap names, traded on a systematic framework. Real account, real trades, posted as they happen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --void:#08080a;
+    --panel:#111114;
+    --panel-2:#17171b;
+    --line:#242429;
+    --line-soft:rgba(255,255,255,0.05);
+    --amber:#f2a53d;
+    --amber-hi:#ffc670;
+    --amber-dim:#8a611a;
+    --amber-soft:rgba(242,165,61,0.1);
+    --ink:#ece9e2;
+    --dim:#82818c;
+    --dim-2:#4c4c54;
+    --bull:#3ecf8e;
+    --bull-soft:rgba(62,207,142,0.1);
+    --bear:#e5484d;
+    --bear-soft:rgba(229,72,77,0.1);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--void);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--amber); color:var(--void);}
+  a{color:inherit; text-decoration:none;}
+  ::-webkit-scrollbar{width:10px;}
+  ::-webkit-scrollbar-track{background:var(--void);}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px;}
+
+  .grid-bg{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(242,165,61,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(242,165,61,0.02) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 80% 55% at 50% 15%, black, transparent);
+  }
+  .noise{
+    position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.035; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  header{
+    position:fixed; top:0; left:0; right:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px clamp(20px, 5vw, 56px);
+    background:rgba(8,8,10,0.72);
+    backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .header-left{display:flex; align-items:center; gap:16px; position:relative;}
+
+  .hamburger{
+    width:34px; height:34px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:5px;
+    background:transparent; border:1px solid var(--line);
+    border-radius:4px; cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .hamburger:hover{border-color:var(--dim-2); background:rgba(255,255,255,.03);}
+  .hamburger span{
+    display:block; width:16px; height:1.5px; background:var(--ink);
+    transition:transform .2s ease, opacity .2s ease;
+  }
+  .hamburger.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg);}
+  .hamburger.open span:nth-child(2){opacity:0;}
+  .hamburger.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}
+
+  .menu-panel{
+    position:absolute; top:calc(100% + 12px); left:0;
+    min-width:220px;
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:6px; overflow:hidden;
+    box-shadow:0 20px 40px -16px rgba(0,0,0,.6);
+    opacity:0; visibility:hidden; transform:translateY(-6px);
+    transition:opacity .18s ease, transform .18s ease, visibility .18s;
+  }
+  .menu-panel.open{opacity:1; visibility:visible; transform:translateY(0);}
+  .menu-panel a{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 16px;
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    color:var(--ink); letter-spacing:0.03em;
+    border-bottom:1px solid var(--line-soft);
+    transition:background .15s ease, color .15s ease;
+  }
+  .menu-panel a:last-child{border-bottom:none;}
+  .menu-panel a:hover{background:rgba(242,165,61,0.06); color:var(--amber);}
+  .menu-panel a .tick{
+    width:6px; height:6px; border-radius:50%; background:var(--bull);
+    box-shadow:0 0 6px var(--bull); opacity:0;
+  }
+  .menu-panel a.is-live .tick{opacity:1;}
+
+  .logo{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.02em;
+    display:flex; align-items:center; gap:9px;
+  }
+  .logo::before{
+    content:''; width:6px; height:6px; border-radius:50%;
+    background:var(--bull); box-shadow:0 0 8px var(--bull);
+    animation:pulse 2.2s ease-in-out infinite;
+  }
+  .logo span{color:var(--amber);}
+  nav.top-nav{display:flex; gap:14px; align-items:center;}
+  .nav-cta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px; letter-spacing:0.07em; text-transform:uppercase;
+    border:1px solid var(--amber-dim);
+    padding:8px 16px;
+    color:var(--amber);
+    border-radius:2px;
+    transition:all .2s ease;
+  }
+  .nav-cta:hover{background:var(--amber-soft); border-color:var(--amber);}
+
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.3;}}
+
+  section{position:relative; z-index:2;}
+
+  .hero{
+    min-height:78vh;
+    display:flex; flex-direction:column; justify-content:center;
+    padding:150px clamp(20px, 5vw, 56px) 90px;
+    max-width:1180px; margin:0 auto;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--amber); margin-bottom:22px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{
+    content:''; width:6px; height:6px; background:var(--bull); border-radius:50%;
+    box-shadow:0 0 8px var(--bull);
+    animation:pulse 2s ease-in-out infinite;
+  }
+
+  h1{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:clamp(34px, 6vw, 66px);
+    line-height:1.06;
+    letter-spacing:-0.015em;
+    max-width:16ch;
+    margin-bottom:24px;
+  }
+  h1 .accent{color:var(--amber);}
+
+  .hero-sub{
+    font-size:clamp(15px, 1.5vw, 17.5px);
+    color:var(--dim);
+    max-width:54ch;
+    line-height:1.65;
+    margin-bottom:38px;
+  }
+
+  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap;}
+  .btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    padding:14px 24px;
+    border-radius:2px;
+    letter-spacing:0.03em;
+    transition:all .2s ease;
+    display:inline-flex; align-items:center; gap:8px;
+    cursor:pointer; border:none;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg, var(--amber-hi), var(--amber));
+    color:#1a1206; font-weight:600;
+    box-shadow:0 1px 0 rgba(255,255,255,.3) inset, 0 10px 24px -12px rgba(242,165,61,.6);
+  }
+  .btn-primary:hover{filter:brightness(1.06); transform:translateY(-1px);}
+  .btn-ghost{
+    border:1px solid var(--line); color:var(--ink); background:rgba(255,255,255,.015);
+  }
+  .btn-ghost:hover{border-color:var(--dim-2); background:rgba(255,255,255,.035);}
+
+  .section-wrap{
+    max-width:1180px; margin:0 auto;
+    padding:100px clamp(20px, 5vw, 56px);
+    border-top:1px solid var(--line);
+  }
+  .section-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px; letter-spacing:0.12em; color:var(--amber);
+    margin-bottom:16px; text-transform:uppercase;
+  }
+  .section-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:clamp(24px, 3.2vw, 34px);
+    font-weight:600;
+    margin-bottom:20px;
+    max-width:20ch;
+    letter-spacing:-0.01em;
+  }
+  .section-desc{
+    color:var(--dim); max-width:58ch; line-height:1.7; font-size:15px;
+  }
+
+  .framework-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+    gap:1px;
+    background:var(--line);
+    margin-top:48px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .fcard{
+    background:var(--panel); padding:28px 24px;
+    transition:background .2s ease;
+  }
+  .fcard:hover{background:var(--panel-2);}
+  .fcard .ftag{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color:var(--amber); letter-spacing:0.08em; margin-bottom:12px; display:block;
+  }
+  .fcard h3{font-size:16px; font-weight:600; margin-bottom:10px; font-family:'IBM Plex Mono', monospace;}
+  .fcard p{color:var(--dim); font-size:13.5px; line-height:1.6;}
+
+  .tool-list{margin-top:48px; display:flex; flex-direction:column;}
+  .tool-row{
+    display:grid; grid-template-columns:120px 1fr auto;
+    align-items:center; gap:24px;
+    padding:26px 4px; border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    transition:background .2s ease;
+    border-radius:4px;
+    cursor:pointer;
+  }
+  .tool-row:hover{background:rgba(255,255,255,.015);}
+  .tool-status{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color:var(--bull); letter-spacing:0.05em;
+  }
+  .tool-name{font-weight:600; font-size:16px;}
+  .tool-desc{color:var(--dim); font-size:13px; margin-top:4px;}
+  .tool-arrow{
+    font-family:'IBM Plex Mono', monospace; color:var(--dim); font-size:18px;
+    transition:transform .2s ease;
+  }
+  .tool-row:hover .tool-arrow{transform:translateX(3px); color:var(--amber);}
+  @media (max-width:640px){
+    .tool-row{grid-template-columns:1fr; gap:6px;}
+    .tool-arrow{display:none;}
+  }
+
+  .cta-section{
+    text-align:center; padding:120px clamp(20px,5vw,56px);
+    border-top:1px solid var(--line);
+    background:radial-gradient(ellipse 60% 100% at 50% 100%, var(--amber-soft), transparent);
+  }
+  .cta-section h2{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:clamp(26px, 4vw, 42px); font-weight:600; margin-bottom:20px;
+    letter-spacing:-0.01em;
+  }
+  .cta-section h2 .accent{color:var(--amber);}
+  .cta-section p{color:var(--dim); max-width:44ch; margin:0 auto 36px; line-height:1.6;}
+  .cta-row{display:flex; justify-content:center; gap:14px; flex-wrap:wrap;}
+
+  footer{
+    border-top:1px solid var(--line);
+    padding:32px clamp(20px,5vw,56px);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--dim);
+    flex-wrap:wrap; gap:12px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .logo::before, .eyebrow::before{animation:none;}
+  }
+
+  a:focus-visible, button:focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="noise"></div>
+
+<header>
+  <div class="header-left">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="logo">@unholy<span>bias</span></div>
+
+    <nav class="menu-panel" id="menuPanel">
+      <a href="index.html">Home</a>
+      <a href="index.html#framework">Framework</a>
+      <a href="halt-scanner.html" class="is-live"><span>Halt Scanner</span><span class="tick"></span></a>
+      <a href="https://x.com/unholybias" target="_blank" rel="noopener">Follow on X</a>
+    </nav>
+  </div>
+  <a href="https://x.com/unholybias" target="_blank" rel="noopener" class="nav-cta">Follow</a>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">Live &nbsp;·&nbsp; Real account, real trades</div>
+  <h1>Trade the break, <span class="accent">not the noise.</span></h1>
+  <p class="hero-sub">Intraday setups on Nasdaq and large-cap names, built on a systematic, rules-based framework and validated against historical data before it's ever traded live. No signals sold. Just the process, shown as it happens.</p>
+  <div class="hero-ctas">
+    <a href="halt-scanner.html" class="btn btn-primary">Open Halt Scanner →</a>
+    <a href="#framework" class="btn btn-ghost">See the framework</a>
+  </div>
+</section>
+
+<section class="section-wrap" id="framework">
+  <div class="section-label">Framework</div>
+  <h2 class="section-title">Process first. Entry second.</h2>
+  <p class="section-desc">Every setup is read the same way, in sequence — because the sequence is the signal. Skip a step and you're trading a guess.</p>
+
+  <div class="framework-grid">
+    <div class="fcard">
+      <span class="ftag">01 — WATCHLIST</span>
+      <h3>Narrow the field</h3>
+      <p>A daily scan filters the universe down to a small handful of names actually worth watching — before the open even prints.</p>
+    </div>
+    <div class="fcard">
+      <span class="ftag">02 — CONFIRMATION</span>
+      <h3>Wait for the tell</h3>
+      <p>No entry until price shows its hand. The setup either confirms on its own terms or it's skipped — no forcing it.</p>
+    </div>
+    <div class="fcard">
+      <span class="ftag">03 — RISK</span>
+      <h3>Size before you enter</h3>
+      <p>Stop and target are set by rule the moment a trade is taken, not adjusted after the fact based on how it feels.</p>
+    </div>
+    <div class="fcard">
+      <span class="ftag">04 — REVIEW</span>
+      <h3>Trade it, then test it</h3>
+      <p>Every rule in the process has been run back through historical data first. Live trading confirms what the data already showed.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section-wrap" id="scanner">
+  <div class="section-label">Built in the open</div>
+  <h2 class="section-title">Catch the halt before the crowd does.</h2>
+  <p class="section-desc">A live feed of trading halts and resumes across the tape — regulatory and volatility (LULD) halts, streamed the moment they print.</p>
+
+  <div class="tool-list">
+    <a href="halt-scanner.html" class="tool-row" style="text-decoration:none; color:inherit;">
+      <span class="tool-status">● LIVE</span>
+      <div>
+        <div class="tool-name">Halt Scanner</div>
+        <div class="tool-desc">Real-time halt / resume feed streamed straight from the tape — symbol, reason, and timestamp.</div>
+      </div>
+      <span class="tool-arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<section class="cta-section" id="follow">
+  <h2>Read the market<br><span class="accent">in real time.</span></h2>
+  <p>No paid signals, no courses to sell. Just the charts, the structure, and the reasoning — posted as it happens.</p>
+  <div class="cta-row">
+    <a href="https://x.com/unholybias" target="_blank" rel="noopener" class="btn btn-primary">Follow on X →</a>
+  </div>
+</section>
+
+<footer>
+  <span>@unholybias</span>
+  <span>Not financial advice. Trade your own plan.</span>
+</footer>
+
+<script>
+  // ── FILL THESE IN from your Supabase project (Settings → API) ──
+  const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
+  // ─────────────────────────────────────────────────────────────
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Hamburger menu
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const menuPanel = document.getElementById('menuPanel');
+
+  function closeMenu(){
+    hamburgerBtn.classList.remove('open');
+    hamburgerBtn.setAttribute('aria-expanded', 'false');
+    menuPanel.classList.remove('open');
+  }
+  function toggleMenu(){
+    const isOpen = menuPanel.classList.toggle('open');
+    hamburgerBtn.classList.toggle('open', isOpen);
+    hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+  }
+  hamburgerBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+  document.addEventListener('click', (e) => {
+    if (!menuPanel.contains(e.target) && !hamburgerBtn.contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  // Fire-and-forget view tracking for the private admin analytics dashboard.
+  function logPageView(){
+    try {
+      let visitorId = localStorage.getItem('ub_visitor_id');
+      if (!visitorId){
+        visitorId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+        localStorage.setItem('ub_visitor_id', visitorId);
+      }
+      sb.from('page_views').insert({ visitor_id: visitorId, path: location.pathname }).then(() => {});
+    } catch (e) { /* analytics should never break the page */ }
+  }
+  logPageView();
+</script>
+
+</body>
+</html>
