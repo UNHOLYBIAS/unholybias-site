@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>@unholybias — Structure. Liquidity. Execution.</title>
-<meta name="description" content="Intraday setups on Nasdaq and large-cap names, traded on a systematic framework. Real account curve, real trades, posted as they happen.">
+<meta name="description" content="Intraday setups on Nasdaq and large-cap names, traded on a systematic framework. Real account, real trades, posted as they happen.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,11 +58,56 @@
   header{
     position:fixed; top:0; left:0; right:0; z-index:50;
     display:flex; align-items:center; justify-content:space-between;
-    padding:18px clamp(20px, 5vw, 56px);
+    padding:16px clamp(20px, 5vw, 56px);
     background:rgba(8,8,10,0.72);
     backdrop-filter:blur(12px);
     border-bottom:1px solid var(--line-soft);
   }
+  .header-left{display:flex; align-items:center; gap:16px; position:relative;}
+
+  .hamburger{
+    width:34px; height:34px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:5px;
+    background:transparent; border:1px solid var(--line);
+    border-radius:4px; cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .hamburger:hover{border-color:var(--dim-2); background:rgba(255,255,255,.03);}
+  .hamburger span{
+    display:block; width:16px; height:1.5px; background:var(--ink);
+    transition:transform .2s ease, opacity .2s ease;
+  }
+  .hamburger.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg);}
+  .hamburger.open span:nth-child(2){opacity:0;}
+  .hamburger.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}
+
+  .menu-panel{
+    position:absolute; top:calc(100% + 12px); left:0;
+    min-width:220px;
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:6px; overflow:hidden;
+    box-shadow:0 20px 40px -16px rgba(0,0,0,.6);
+    opacity:0; visibility:hidden; transform:translateY(-6px);
+    transition:opacity .18s ease, transform .18s ease, visibility .18s;
+  }
+  .menu-panel.open{opacity:1; visibility:visible; transform:translateY(0);}
+  .menu-panel a{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 16px;
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    color:var(--ink); letter-spacing:0.03em;
+    border-bottom:1px solid var(--line-soft);
+    transition:background .15s ease, color .15s ease;
+  }
+  .menu-panel a:last-child{border-bottom:none;}
+  .menu-panel a:hover{background:rgba(242,165,61,0.06); color:var(--amber);}
+  .menu-panel a .tick{
+    width:6px; height:6px; border-radius:50%; background:var(--bull);
+    box-shadow:0 0 6px var(--bull); opacity:0;
+  }
+  .menu-panel a.is-live .tick{opacity:1;}
+
   .logo{
     font-family:'IBM Plex Mono', monospace;
     font-weight:600;
@@ -76,30 +121,24 @@
     animation:pulse 2.2s ease-in-out infinite;
   }
   .logo span{color:var(--amber);}
-  nav{display:flex; gap:30px; align-items:center;}
-  nav a{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11.5px;
-    color:var(--dim);
-    letter-spacing:0.07em;
-    text-transform:uppercase;
-    transition:color .2s ease;
-  }
-  nav a:hover{color:var(--ink);}
+  nav.top-nav{display:flex; gap:14px; align-items:center;}
   .nav-cta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px; letter-spacing:0.07em; text-transform:uppercase;
     border:1px solid var(--amber-dim);
     padding:8px 16px;
-    color:var(--amber) !important;
+    color:var(--amber);
     border-radius:2px;
     transition:all .2s ease;
   }
   .nav-cta:hover{background:var(--amber-soft); border-color:var(--amber);}
-  @media (max-width:720px){ nav a:not(.nav-cta){display:none;} }
+
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.3;}}
 
   section{position:relative; z-index:2;}
 
   .hero{
-    min-height:100vh;
+    min-height:78vh;
     display:flex; flex-direction:column; justify-content:center;
     padding:150px clamp(20px, 5vw, 56px) 90px;
     max-width:1180px; margin:0 auto;
@@ -115,7 +154,6 @@
     box-shadow:0 0 8px var(--bull);
     animation:pulse 2s ease-in-out infinite;
   }
-  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.3;}}
 
   h1{
     font-family:'IBM Plex Mono', monospace;
@@ -136,7 +174,7 @@
     margin-bottom:38px;
   }
 
-  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:60px;}
+  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap;}
   .btn{
     font-family:'IBM Plex Mono', monospace;
     font-size:13px;
@@ -157,57 +195,6 @@
     border:1px solid var(--line); color:var(--ink); background:rgba(255,255,255,.015);
   }
   .btn-ghost:hover{border-color:var(--dim-2); background:rgba(255,255,255,.035);}
-
-  .chart-wrap{
-    width:100%;
-    border:1px solid var(--line);
-    background:linear-gradient(180deg, var(--panel), var(--panel-2));
-    border-radius:6px;
-    padding:24px clamp(14px,3vw,32px) 20px;
-    position:relative;
-    overflow:hidden;
-    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 30px 60px -30px rgba(0,0,0,.6);
-  }
-  .chart-header{
-    display:flex; justify-content:space-between; align-items:center;
-    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim);
-    margin-bottom:18px; letter-spacing:0.06em; flex-wrap:wrap; gap:10px;
-  }
-  .chart-header .tag{
-    font-size:11px; padding:3px 9px; border-radius:2px;
-    font-weight:600; letter-spacing:0.04em;
-  }
-  .tag.bull{color:var(--bull); border:1px solid rgba(62,207,142,0.35); background:var(--bull-soft);}
-  .tag.bear{color:var(--bear); border:1px solid rgba(229,72,77,0.35); background:var(--bear-soft);}
-  .tag.neutral{color:var(--dim); border:1px solid var(--line); background:transparent;}
-
-  .chart-meta{
-    display:grid; grid-template-columns:repeat(3, auto); justify-content:start; gap:clamp(24px,5vw,56px);
-    margin-bottom:18px;
-  }
-  .cm-label{
-    display:block; font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--dim);
-    text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;
-  }
-  .cm-value{
-    font-family:'IBM Plex Mono', monospace; font-size:clamp(18px,2.4vw,24px); font-weight:600;
-    font-variant-numeric:tabular-nums;
-  }
-  .cm-value.bull{color:var(--bull);}
-  .cm-value.bear{color:var(--bear);}
-
-  svg#equitySvg{width:100%; height:auto; display:block;}
-  svg#drawdownSvg{width:100%; height:auto; display:block;}
-  .dd-divider{
-    display:flex; align-items:center; gap:10px; margin:6px 0 8px;
-    font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--dim-2);
-    letter-spacing:0.1em; text-transform:uppercase;
-  }
-  .dd-divider::after{content:''; flex:1; height:1px; background:var(--line);}
-  .chart-note{
-    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--dim);
-    margin-top:14px; text-align:center;
-  }
 
   .section-wrap{
     max-width:1180px; margin:0 auto;
@@ -257,18 +244,18 @@
   .tool-row{
     display:grid; grid-template-columns:120px 1fr auto;
     align-items:center; gap:24px;
-    padding:22px 4px; border-top:1px solid var(--line);
+    padding:26px 4px; border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
     transition:background .2s ease;
     border-radius:4px;
+    cursor:pointer;
   }
   .tool-row:hover{background:rgba(255,255,255,.015);}
-  .tool-row:last-child{border-bottom:1px solid var(--line);}
   .tool-status{
     font-family:'IBM Plex Mono', monospace; font-size:11px;
     color:var(--bull); letter-spacing:0.05em;
   }
-  .tool-status.testing{color:var(--amber);}
-  .tool-name{font-weight:600; font-size:15px;}
+  .tool-name{font-weight:600; font-size:16px;}
   .tool-desc{color:var(--dim); font-size:13px; margin-top:4px;}
   .tool-arrow{
     font-family:'IBM Plex Mono', monospace; color:var(--dim); font-size:18px;
@@ -279,60 +266,6 @@
     .tool-row{grid-template-columns:1fr; gap:6px;}
     .tool-arrow{display:none;}
   }
-
-  .stats-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-    gap:1px; background:var(--line);
-    margin-top:48px; border:1px solid var(--line);
-    border-radius:6px; overflow:hidden;
-  }
-  .stat-card{background:var(--panel); padding:26px 22px;}
-  .stat-label{
-    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--dim);
-    text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;
-  }
-  .stat-value{
-    font-family:'IBM Plex Mono', monospace; font-size:clamp(22px, 3vw, 30px);
-    font-weight:600; font-variant-numeric:tabular-nums;
-  }
-  .stat-value.bull{color:var(--bull);}
-  .stat-value.bear{color:var(--bear);}
-
-  .trades-list{margin-top:40px; display:flex; flex-direction:column;}
-  .trade-row{
-    display:grid; grid-template-columns:90px 70px 60px 1fr 90px;
-    align-items:center; gap:16px;
-    padding:16px 4px; border-top:1px solid var(--line);
-    font-family:'IBM Plex Mono', monospace; font-size:13px;
-    border-radius:4px; transition:background .2s ease;
-  }
-  .trade-row:hover{background:rgba(255,255,255,.015);}
-  .trade-row:last-child{border-bottom:1px solid var(--line);}
-  .trade-ticker{font-weight:600; font-size:14px; font-family:'IBM Plex Sans', sans-serif;}
-  .pill{font-size:11px; padding:2px 8px; border-radius:2px; width:fit-content;}
-  .pill.long{color:var(--bull); border:1px solid rgba(62,207,142,.35); background:var(--bull-soft);}
-  .pill.short{color:var(--bear); border:1px solid rgba(229,72,77,.35); background:var(--bear-soft);}
-  .trade-notes{color:var(--dim); font-family:'IBM Plex Sans', sans-serif; font-size:13px;}
-  .trade-r{text-align:right; font-variant-numeric:tabular-nums;}
-  .trade-r.win{color:var(--bull);}
-  .trade-r.loss{color:var(--bear);}
-  .trade-r.open{color:var(--dim);}
-  @media (max-width:640px){
-    .trade-row{grid-template-columns:1fr 1fr; grid-auto-rows:auto; row-gap:4px;}
-    .trade-notes{grid-column:1 / -1;}
-  }
-
-  .watchlist-chips{display:flex; flex-wrap:wrap; gap:10px; margin-top:32px;}
-  .chip{
-    font-family:'IBM Plex Mono', monospace; font-size:13px;
-    border:1px solid var(--line); background:var(--panel);
-    padding:8px 14px; border-radius:2px;
-    transition:border-color .2s ease;
-  }
-  .chip:hover{border-color:var(--dim-2);}
-  .chip b{color:var(--amber);}
-  .empty-note{color:var(--dim); font-size:14px; margin-top:24px; font-style:italic;}
 
   .cta-section{
     text-align:center; padding:120px clamp(20px,5vw,56px);
@@ -357,7 +290,7 @@
   }
 
   @media (prefers-reduced-motion: reduce){
-    .logo::before, .eyebrow::before, .pulse-dot{animation:none;}
+    .logo::before, .eyebrow::before{animation:none;}
   }
 
   a:focus-visible, button:focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
@@ -369,13 +302,20 @@
 <div class="noise"></div>
 
 <header>
-  <div class="logo">@unholy<span>bias</span></div>
-  <nav>
-    <a href="#trackrecord">Track Record</a>
-    <a href="#framework">Framework</a>
-    <a href="#tools">Tools</a>
-    <a href="#follow" class="nav-cta">Follow</a>
-  </nav>
+  <div class="header-left">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="logo">@unholy<span>bias</span></div>
+
+    <nav class="menu-panel" id="menuPanel">
+      <a href="index.html">Home</a>
+      <a href="index.html#framework">Framework</a>
+      <a href="halt-scanner.html" class="is-live"><span>Halt Scanner</span><span class="tick"></span></a>
+      <a href="https://x.com/unholybias" target="_blank" rel="noopener">Follow on X</a>
+    </nav>
+  </div>
+  <a href="https://x.com/unholybias" target="_blank" rel="noopener" class="nav-cta">Follow</a>
 </header>
 
 <section class="hero">
@@ -383,59 +323,8 @@
   <h1>Trade the break, <span class="accent">not the noise.</span></h1>
   <p class="hero-sub">Intraday setups on Nasdaq and large-cap names, built on a systematic, rules-based framework and validated against historical data before it's ever traded live. No signals sold. Just the process, shown as it happens.</p>
   <div class="hero-ctas">
-    <a href="#follow" class="btn btn-primary">Follow @unholybias →</a>
+    <a href="halt-scanner.html" class="btn btn-primary">Open Halt Scanner →</a>
     <a href="#framework" class="btn btn-ghost">See the framework</a>
-  </div>
-
-  <div class="chart-wrap">
-    <div class="chart-header">
-      <span>LIVE ACCOUNT · EQUITY CURVE</span>
-      <span class="tag neutral" id="equityTag">LOADING</span>
-    </div>
-    <div class="chart-meta">
-      <div><span class="cm-label">Balance</span><span class="cm-value" id="acctBalance">—</span></div>
-      <div><span class="cm-label">Return</span><span class="cm-value" id="acctReturn">—</span></div>
-      <div><span class="cm-label">Max Drawdown</span><span class="cm-value" id="acctMaxDD">—</span></div>
-    </div>
-    <svg id="equitySvg" viewBox="0 0 1000 240" preserveAspectRatio="none"></svg>
-    <div class="dd-divider"><span>Drawdown</span></div>
-    <svg id="drawdownSvg" viewBox="0 0 1000 80" preserveAspectRatio="none"></svg>
-    <div class="chart-note" id="equityNote"></div>
-  </div>
-</section>
-
-<section class="section-wrap" id="trackrecord">
-  <div class="section-label">Track Record</div>
-  <h2 class="section-title">Posted, not promised.</h2>
-  <p class="section-desc">Every trade logged with entry, stop, and result — win rate and R:R calculated automatically, updated as soon as it's posted.</p>
-
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-label">Win Rate</div>
-      <div class="stat-value" id="statWinRate">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Avg R:R</div>
-      <div class="stat-value" id="statAvgR">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Closed Trades</div>
-      <div class="stat-value" id="statClosed">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Open Positions</div>
-      <div class="stat-value" id="statOpen">—</div>
-    </div>
-  </div>
-
-  <h3 class="section-label" style="margin-top:56px;">Recent Trades</h3>
-  <div class="trades-list" id="tradesList">
-    <p class="empty-note">Loading...</p>
-  </div>
-
-  <h3 class="section-label" style="margin-top:56px;">Watchlist</h3>
-  <div class="watchlist-chips" id="watchlistChips">
-    <p class="empty-note">Loading...</p>
   </div>
 </section>
 
@@ -468,44 +357,20 @@
   </div>
 </section>
 
-<section class="section-wrap" id="tools">
+<section class="section-wrap" id="scanner">
   <div class="section-label">Built in the open</div>
-  <h2 class="section-title">Tools I actually trade with</h2>
-  <p class="section-desc">Custom Pine Script indicators and self-contained dashboards — built for one watchlist, refined every week.</p>
+  <h2 class="section-title">Catch the halt before the crowd does.</h2>
+  <p class="section-desc">A live feed of trading halts and resumes across the tape — regulatory and volatility (LULD) halts, streamed the moment they print.</p>
 
   <div class="tool-list">
-    <div class="tool-row">
-      <span class="tool-status">● ACTIVE</span>
+    <a href="halt-scanner.html" class="tool-row" style="text-decoration:none; color:inherit;">
+      <span class="tool-status">● LIVE</span>
       <div>
-        <div class="tool-name">Gap Scanner</div>
-        <div class="tool-desc">Dual leaderboard — open % and daily % — with alerts firing at the open.</div>
+        <div class="tool-name">Halt Scanner</div>
+        <div class="tool-desc">Real-time halt / resume feed streamed straight from the tape — symbol, reason, and timestamp.</div>
       </div>
       <span class="tool-arrow">→</span>
-    </div>
-    <div class="tool-row">
-      <span class="tool-status">● ACTIVE</span>
-      <div>
-        <div class="tool-name">Signal Confirmation Indicator</div>
-        <div class="tool-desc">Custom confirmation logic tuned to filter out false starts before an entry is ever considered.</div>
-      </div>
-      <span class="tool-arrow">→</span>
-    </div>
-    <div class="tool-row">
-      <span class="tool-status">● ACTIVE</span>
-      <div>
-        <div class="tool-name">Regime Indicator</div>
-        <div class="tool-desc">Reads market efficiency in real time to color the current regime and flag conflicting signals.</div>
-      </div>
-      <span class="tool-arrow">→</span>
-    </div>
-    <div class="tool-row">
-      <span class="tool-status testing">● IN TESTING</span>
-      <div>
-        <div class="tool-name">Backtesting Engine</div>
-        <div class="tool-desc">Every rule run against historical intraday data before it's trusted with real size.</div>
-      </div>
-      <span class="tool-arrow">→</span>
-    </div>
+    </a>
   </div>
 </section>
 
@@ -524,213 +389,33 @@
 
 <script>
   // ── FILL THESE IN from your Supabase project (Settings → API) ──
-  // Project URL looks like: https://xxxxxxxxxxxx.supabase.co
-  // Use the "publishable" / "anon" key here — NEVER the secret / service_role key.
- const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
+  const SUPABASE_URL = "https://hgespspgadbyhgcainlr.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_JRuw3y-lQ0YuzpwKxPyyIQ_5RbWQYu0";
   // ─────────────────────────────────────────────────────────────
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Starting account size used as the base of the equity curve.
-  const ACCOUNT_START = 4959;
+  // Hamburger menu
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const menuPanel = document.getElementById('menuPanel');
 
-  function calcR(direction, entry, stop, exitOrTarget){
-    const risk = Math.abs(entry - stop);
-    if (!risk || exitOrTarget == null || isNaN(exitOrTarget)) return null;
-    const reward = direction === 'long' ? (exitOrTarget - entry) : (entry - exitOrTarget);
-    return reward / risk;
+  function closeMenu(){
+    hamburgerBtn.classList.remove('open');
+    hamburgerBtn.setAttribute('aria-expanded', 'false');
+    menuPanel.classList.remove('open');
   }
-
-  function fmtUSD(n){
-    const sign = n < 0 ? '-' : '';
-    return sign + '$' + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
+  function toggleMenu(){
+    const isOpen = menuPanel.classList.toggle('open');
+    hamburgerBtn.classList.toggle('open', isOpen);
+    hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
   }
-
-  // Build the equity + drawdown curve from closed trades' pnl_usd
-  function renderEquityCurve(trades){
-    const tagEl = document.getElementById('equityTag');
-    const balEl = document.getElementById('acctBalance');
-    const retEl = document.getElementById('acctReturn');
-    const ddEl = document.getElementById('acctMaxDD');
-    const noteEl = document.getElementById('equityNote');
-    const eqSvg = document.getElementById('equitySvg');
-    const ddSvg = document.getElementById('drawdownSvg');
-
-    const closed = (trades || [])
-      .filter(t => t.exit != null && t.pnl_usd != null && !isNaN(parseFloat(t.pnl_usd)))
-      .sort((a, b) => (a.trade_date > b.trade_date ? 1 : a.trade_date < b.trade_date ? -1 : 0));
-
-    const equity = [ACCOUNT_START];
-    closed.forEach(t => equity.push(equity[equity.length - 1] + parseFloat(t.pnl_usd)));
-
-    const balance = equity[equity.length - 1];
-    const totalReturn = ((balance - ACCOUNT_START) / ACCOUNT_START) * 100;
-
-    let peak = equity[0];
-    const drawdown = equity.map(e => { peak = Math.max(peak, e); return ((e - peak) / peak) * 100; });
-    const maxDD = Math.min(...drawdown);
-
-    balEl.textContent = fmtUSD(balance);
-    retEl.textContent = (totalReturn >= 0 ? '+' : '') + totalReturn.toFixed(2) + '%';
-    retEl.className = 'cm-value ' + (totalReturn > 0 ? 'bull' : totalReturn < 0 ? 'bear' : '');
-    ddEl.textContent = maxDD.toFixed(2) + '%';
-    ddEl.className = 'cm-value ' + (maxDD < 0 ? 'bear' : '');
-
-    tagEl.textContent = closed.length === 0 ? 'AWAITING FIRST CLOSE' : (totalReturn >= 0 ? 'IN PROFIT' : 'DRAWDOWN');
-    tagEl.className = 'tag ' + (closed.length === 0 ? 'neutral' : totalReturn >= 0 ? 'bull' : 'bear');
-
-    noteEl.textContent = closed.length === 0
-      ? `Curve starts at ${fmtUSD(ACCOUNT_START)} — updates as trades close.`
-      : `${closed.length} closed trade${closed.length === 1 ? '' : 's'} since ${fmtUSD(ACCOUNT_START)} starting balance.`;
-
-    const W = 1000, H = 240, PAD = 14;
-    const n = equity.length;
-    const minE = Math.min(...equity), maxE = Math.max(...equity);
-    const range = (maxE - minE) || Math.max(1, minE * 0.02);
-    const x = i => n === 1 ? 0 : (i / (n - 1)) * W;
-    const y = v => H - PAD - ((v - minE) / range) * (H - PAD * 2);
-
-    const lineColor = totalReturn >= 0 ? 'var(--bull)' : 'var(--bear)';
-    let d = equity.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(' ');
-    let area = `${d} L${x(n-1).toFixed(2)},${H} L0,${H} Z`;
-
-    const gridLines = [0.25, 0.5, 0.75].map(f => {
-      const yy = (H - PAD * 2) * f + PAD;
-      return `<line x1="0" y1="${yy}" x2="${W}" y2="${yy}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 5"/>`;
-    }).join('');
-
-    eqSvg.innerHTML = `
-      <defs>
-        <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.22"/>
-          <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      ${gridLines}
-      <path d="${area}" fill="url(#eqFill)" stroke="none"/>
-      <path d="${d}" fill="none" stroke="${lineColor}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${x(n-1).toFixed(2)}" cy="${y(equity[n-1]).toFixed(2)}" r="4.5" fill="var(--void)" stroke="${lineColor}" stroke-width="2.5"/>
-      <circle class="pulse-dot" cx="${x(n-1).toFixed(2)}" cy="${y(equity[n-1]).toFixed(2)}" r="8" fill="${lineColor}" opacity="0.18">
-        <animate attributeName="r" values="6;14;6" dur="2.4s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.28;0;0.28" dur="2.4s" repeatCount="indefinite"/>
-      </circle>
-    `;
-
-    const DH = 80, DPAD = 6;
-    const minDDv = Math.min(0, ...drawdown);
-    const ddRange = Math.abs(minDDv) || 1;
-    const yDD = v => DPAD + (Math.abs(v) / ddRange) * (DH - DPAD * 2);
-    let ddPath = drawdown.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(2)},${yDD(v).toFixed(2)}`).join(' ');
-    let ddArea = `${ddPath} L${x(n-1).toFixed(2)},${DPAD} L0,${DPAD} Z`;
-
-    ddSvg.innerHTML = `
-      <defs>
-        <linearGradient id="ddFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="var(--bear)" stop-opacity="0.05"/>
-          <stop offset="100%" stop-color="var(--bear)" stop-opacity="0.28"/>
-        </linearGradient>
-      </defs>
-      <line x1="0" y1="${DPAD}" x2="${W}" y2="${DPAD}" stroke="var(--line)" stroke-width="1"/>
-      <path d="${ddArea}" fill="url(#ddFill)" stroke="none"/>
-      <path d="${ddPath}" fill="none" stroke="var(--bear)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>
-    `;
-  }
-
-  async function loadTrackRecord(){
-    const { data: trades, error } = await sb
-      .from('trades')
-      .select('*')
-      .order('trade_date', { ascending: false })
-      .limit(50);
-
-    const listEl = document.getElementById('tradesList');
-
-    if (error || !trades){
-      listEl.innerHTML = '<p class="empty-note">Track record loads once the database is connected.</p>';
-      document.getElementById('statWinRate').textContent = '—';
-      document.getElementById('statAvgR').textContent = '—';
-      document.getElementById('statClosed').textContent = '—';
-      document.getElementById('statOpen').textContent = '—';
-      renderEquityCurve([]);
-      return;
-    }
-
-    renderEquityCurve(trades);
-
-    if (trades.length === 0){
-      listEl.innerHTML = '<p class="empty-note">No trades posted yet.</p>';
-    }
-
-    const closed = trades.filter(t => t.exit != null);
-    const open = trades.filter(t => t.exit == null);
-    const rMultiples = closed.map(t => calcR(t.direction, t.entry, t.stop, t.exit)).filter(r => r !== null);
-    const wins = rMultiples.filter(r => r > 0).length;
-    const winRate = rMultiples.length ? (wins / rMultiples.length * 100) : null;
-    const avgR = rMultiples.length ? (rMultiples.reduce((a,b) => a+b, 0) / rMultiples.length) : null;
-
-    document.getElementById('statWinRate').textContent = winRate !== null ? winRate.toFixed(0) + '%' : '—';
-    document.getElementById('statWinRate').className = 'stat-value' + (winRate !== null ? (winRate >= 50 ? ' bull' : ' bear') : '');
-    document.getElementById('statAvgR').textContent = avgR !== null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—';
-    document.getElementById('statAvgR').className = 'stat-value' + (avgR !== null ? (avgR >= 0 ? ' bull' : ' bear') : '');
-    document.getElementById('statClosed').textContent = closed.length;
-    document.getElementById('statOpen').textContent = open.length;
-
-    listEl.innerHTML = '';
-    trades.slice(0, 20).forEach(t => {
-      const r = t.exit != null ? calcR(t.direction, t.entry, t.stop, t.exit) : calcR(t.direction, t.entry, t.stop, t.target);
-      let rLabel = t.exit != null
-        ? (r !== null ? (r >= 0 ? '+' : '') + r.toFixed(2) + 'R' : '—')
-        : (r !== null ? r.toFixed(2) + 'R plan' : '—');
-      if (t.exit != null && t.pnl_usd != null && !isNaN(parseFloat(t.pnl_usd))){
-        const pnl = parseFloat(t.pnl_usd);
-        rLabel += ' · ' + (pnl >= 0 ? '+' : '') + fmtUSD(pnl);
-      }
-      const rClass = t.exit == null ? 'open' : (r > 0 ? 'win' : r < 0 ? 'loss' : '');
-      const row = document.createElement('div');
-      row.className = 'trade-row';
-      row.innerHTML = `
-        <span>${t.trade_date}</span>
-        <span class="trade-ticker">${t.ticker}</span>
-        <span class="pill ${t.direction}">${t.direction}</span>
-        <span class="trade-notes">${t.notes ?? ''}</span>
-        <span class="trade-r ${rClass}">${rLabel}</span>
-      `;
-      listEl.appendChild(row);
-    });
-  }
-
-  async function loadWatchlist(){
-    const { data: items, error } = await sb
-      .from('watchlist')
-      .select('*')
-      .order('watch_date', { ascending: false })
-      .limit(12);
-
-    const el = document.getElementById('watchlistChips');
-    if (error || !items){
-      el.innerHTML = '<p class="empty-note">Watchlist loads once the database is connected.</p>';
-      return;
-    }
-    if (items.length === 0){
-      el.innerHTML = '<p class="empty-note">Nothing on the watchlist yet.</p>';
-      return;
-    }
-    el.innerHTML = '';
-    items.forEach(w => {
-      const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.innerHTML = `<b>${w.ticker}</b> ${w.note ? '— ' + w.note : ''}`;
-      el.appendChild(chip);
-    });
-  }
-
-  loadTrackRecord();
-  loadWatchlist();
-  logPageView();
+  hamburgerBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+  document.addEventListener('click', (e) => {
+    if (!menuPanel.contains(e.target) && !hamburgerBtn.contains(e.target)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
   // Fire-and-forget view tracking for the private admin analytics dashboard.
-  // Fails silently if the page_views table / policies aren't set up yet.
   function logPageView(){
     try {
       let visitorId = localStorage.getItem('ub_visitor_id');
@@ -741,6 +426,7 @@
       sb.from('page_views').insert({ visitor_id: visitorId, path: location.pathname }).then(() => {});
     } catch (e) { /* analytics should never break the page */ }
   }
+  logPageView();
 </script>
 
 </body>
