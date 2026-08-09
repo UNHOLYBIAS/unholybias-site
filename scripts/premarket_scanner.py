@@ -117,17 +117,34 @@ def upsert_rows(rows, list_type: str):
 
 
 def main():
-    had_error = False
-    for list_type in ("gainers", "losers"):
-        try:
-            rows = fetch_movers(f"markets/premarket/{list_type}")
-            upsert_rows(rows, list_type)
-        except Exception as e:
-            had_error = True
-            print(f"[{list_type}] ERROR: {e}")
+    import time
 
-    if had_error:
-        sys.exit(1)
+    loop_seconds = int(os.environ.get("LOOP_SECONDS", "270"))   # ~4.5 min budget
+    interval_seconds = int(os.environ.get("INTERVAL_SECONDS", "30"))
+
+    start = time.time()
+    iteration = 0
+
+    while time.time() - start < loop_seconds:
+        iteration += 1
+        had_error = False
+        print(f"--- iteration {iteration} ---")
+
+        for list_type in ("gainers", "losers"):
+            try:
+                rows = fetch_movers(f"markets/premarket/{list_type}")
+                upsert_rows(rows, list_type)
+            except Exception as e:
+                had_error = True
+                print(f"[{list_type}] ERROR: {e}")
+
+        if had_error:
+            print("iteration had errors, continuing loop anyway")
+
+        remaining = loop_seconds - (time.time() - start)
+        if remaining <= interval_seconds:
+            break
+        time.sleep(interval_seconds)
 
 
 if __name__ == "__main__":
