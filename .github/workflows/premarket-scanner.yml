@@ -1,0 +1,27 @@
+name: Premarket Scanner
+
+on:
+  schedule:
+    # Every 5 minutes, 08:00-14:00 UTC (roughly 4:00am-10:00am ET, covers
+    # premarket + a little buffer). Adjust to taste. GitHub cron is UTC only.
+    - cron: "*/5 8-14 * * 1-5"
+  workflow_dispatch: {}  # lets you manually trigger a run from the Actions tab
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run scanner
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/premarket_scanner.py
