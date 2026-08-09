@@ -2,10 +2,12 @@ name: Premarket Scanner
 
 on:
   schedule:
-    # Every 5 minutes, 08:00-14:00 UTC (roughly 4:00am-10:00am ET, covers
-    # premarket + a little buffer). Adjust to taste. GitHub cron is UTC only.
     - cron: "*/5 8-14 * * 1-5"
-  workflow_dispatch: {}  # lets you manually trigger a run from the Actions tab
+  workflow_dispatch: {}
+
+concurrency:
+  group: premarket-scanner
+  cancel-in-progress: true
 
 jobs:
   scan:
