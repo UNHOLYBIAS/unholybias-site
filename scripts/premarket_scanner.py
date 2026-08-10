@@ -11,6 +11,7 @@ Reads config from environment variables (set as GitHub Actions secrets):
 import os
 import sys
 import requests
+from datetime import datetime, timezone
 
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -80,11 +81,12 @@ def fetch_movers(page_path: str):
     raise RuntimeError(f"Couldn't find stock row list for {page_path}")
 
 
-def upsert_rows(rows, list_type: str):
+def replace_rows(rows, list_type: str):
     if not rows:
-        print(f"[{list_type}] no rows to upsert")
+        print(f"[{list_type}] no rows to write")
         return
 
+    now = datetime.now(timezone.utc).isoformat()
     payload = []
     for r in rows:
         payload.append({
@@ -95,16 +97,30 @@ def upsert_rows(rows, list_type: str):
             "volume": r.get("premarketVolume"),
             "market_cap": r.get("marketCap"),
             "list_type": list_type,
+            "updated_at": now,
         })
 
+    common_headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    # Wipe today's stale rows for this list_type first, so tickers that
+    # dropped off the movers list don't linger forever.
+    del_resp = requests.delete(
+        f"{SUPABASE_URL}/rest/v1/premarket_movers?list_type=eq.{list_type}",
+        headers={**common_headers, "Prefer": "return=minimal"},
+        timeout=15,
+    )
+    if not del_resp.ok:
+        print(f"[{list_type}] delete FAILED: {del_resp.status_code} {del_resp.text}")
+        del_resp.raise_for_status()
+
+    # Insert the current fresh batch.
     resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/premarket_movers?on_conflict=symbol,list_type",
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates,return=minimal",
-        },
+        f"{SUPABASE_URL}/rest/v1/premarket_movers",
+        headers={**common_headers, "Prefer": "return=minimal"},
         json=payload,
         timeout=15,
     )
@@ -119,32 +135,36 @@ def upsert_rows(rows, list_type: str):
 def main():
     import time
 
-    loop_seconds = int(os.environ.get("LOOP_SECONDS", "270"))   # ~4.5 min budget
+    loop_seconds = int(os.environ.get("LOOP_SECONDS", "270"))
     interval_seconds = int(os.environ.get("INTERVAL_SECONDS", "30"))
 
     start = time.time()
     iteration = 0
+    total_errors = 0
 
     while time.time() - start < loop_seconds:
         iteration += 1
-        had_error = False
-        print(f"--- iteration {iteration} ---")
+        print(f"--- iteration {iteration} ---", flush=True)
 
-        for list_type in ("gainers", "losers"):
+        for list_type in ("gainers",):
             try:
                 rows = fetch_movers(f"markets/premarket/{list_type}")
-                upsert_rows(rows, list_type)
+                rows = rows[:20]
+                replace_rows(rows, list_type)
             except Exception as e:
-                had_error = True
-                print(f"[{list_type}] ERROR: {e}")
-
-        if had_error:
-            print("iteration had errors, continuing loop anyway")
+                total_errors += 1
+                print(f"[{list_type}] ERROR: {type(e).__name__}: {e}", flush=True)
 
         remaining = loop_seconds - (time.time() - start)
         if remaining <= interval_seconds:
             break
         time.sleep(interval_seconds)
+
+    print(f"=== done: {iteration} iterations, {total_errors} errors ===", flush=True)
+    if total_errors > 0 and total_errors == iteration * 2:
+        # every single fetch across every iteration failed — hard fail the job
+        print("ALL fetches failed — failing the job so it shows red, not green.", flush=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
