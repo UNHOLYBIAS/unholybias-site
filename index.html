@@ -319,6 +319,62 @@
     return `${map.year}-${map.month}-${map.day}`;
   }
 
+  /* ================= Movers table ================= */
+  async function loadMovers(listType) {
+    const statusEl = document.getElementById("status");
+    const rowsEl = document.getElementById("rows");
+    const emptyEl = document.getElementById("empty");
+    const errorEl = document.getElementById("error");
+
+    statusEl.textContent = "loading…";
+    errorEl.style.display = "none";
+    emptyEl.style.display = "none";
+
+    const { data, error } = await supabase
+      .from("premarket_movers")
+      .select("*")
+      .eq("list_type", listType)
+      .order("pct_change", { ascending: listType === "losers" });
+
+    if (error) {
+      statusEl.textContent = "error";
+      errorEl.textContent = "Couldn't load data: " + error.message;
+      errorEl.style.display = "block";
+      rowsEl.innerHTML = "";
+      currentRows = [];
+      return;
+    }
+
+    currentRows = data || [];
+
+    if (currentRows.length === 0) {
+      rowsEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      statusEl.textContent = "live";
+      return;
+    }
+
+    renderMoversTable();
+    statusEl.textContent = "live";
+
+    const latest = currentRows.reduce((a, b) => new Date(a.updated_at) > new Date(b.updated_at) ? a : b);
+    latestUpdatedAt = new Date(latest.updated_at);
+    renderClock();
+  }
+
+  function renderMoversTable() {
+    const rowsEl = document.getElementById("rows");
+    rowsEl.innerHTML = currentRows.map(r => `
+      <tr class="mover-row">
+        <td class="symbol">${r.symbol}</td>
+        <td class="name">${r.name ?? ""}</td>
+        <td class="num pct ${r.pct_change >= 0 ? "pos" : "neg"}">${fmtPct(r.pct_change)}</td>
+        <td class="num">${r.price ?? "—"}</td>
+        <td class="num">${fmtFull(r.volume)}</td>
+        <td class="num">${fmtMarketCap(r.market_cap)}</td>
+      </tr>`).join('');
+  }
+
   /* ================= Init ================= */
   (async function init() {
     await loadMovers(currentList);
