@@ -232,10 +232,6 @@
     </span>
   </header>
 
-  <div class="config-note" id="configNote">
-    ⚠ Set MASSIVE_API_KEY / FMP_API_KEY in the script before the analyzer will pull real data.
-  </div>
-
   <table>
     <thead>
       <tr>
@@ -280,18 +276,15 @@
   const SUPABASE_URL = "https://kwgkbqhcmimypcrfbqym.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_dPi7qx_l1OYRFhnddPv84Q_AA7bl1eI";
 
-  const MASSIVE_API_KEY = "1jiMqU4uc6BvsKmkOgjURZMHXVwvCXc7";
-  const MASSIVE_BASE = "https://api.massive.com";
-  const FMP_API_KEY = "oHl1luvjtHDvgtVG7r1pAtlb9l3kDtyo";
-  const FMP_BASE = "https://financialmodelingprep.com/stable";
+  // Massive/FMP calls now go through a proxy so the real API keys never
+  // appear in this file. The proxy holds MASSIVE_API_KEY/FMP_API_KEY
+  // server-side and forwards requests — see api_proxy.ts.
+  const MASSIVE_BASE = "https://YOUR-API-PROXY.deno.dev/massive";
+  const FMP_BASE = "https://YOUR-API-PROXY.deno.dev/fmp";
+  const PROXY_SECRET = "REPLACE_WITH_PROXY_SECRET";
 
-  const TELEGRAM_BOT_TOKEN = "8787595726:AAG29zyIm7CBKw7ZbGg9kfKT-XPhNvecIEc";
-  const TELEGRAM_CHAT_ID = "6288044857";
-  const TELEGRAM_ALERT_THRESHOLD = 100; // fires once, the moment a symbol's pct_change first crosses this
-
-  if (MASSIVE_API_KEY === "YOUR_MASSIVE_API_KEY" || FMP_API_KEY === "YOUR_FMP_API_KEY") {
-    document.getElementById('configNote').classList.add('show');
-  }
+  // Telegram alerting moved server-side to tg_alert_cron.ts on Deno Deploy —
+  // it no longer depends on this page being open. See that file for config.
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -299,8 +292,9 @@
   let currentRows = [];           // last loaded mover rows for the active tab
   let expandedSymbol = null;      // symbol currently expanded, or null
   let latestUpdatedAt = null;     // Date of the most recent updated_at seen from Supabase
+  const RELAY_URL = "https://YOUR-DENO-DEPLOY-PROJECT.deno.dev/post-analysis";
+  const RELAY_SECRET = "0b387eeb662010f22ecbcfbba3216640";
   const analysisCache = {};       // `${dateKey}:${symbol}` -> analysis object (in-memory this session)
-  let alertedSymbols = new Set(); // symbols already telegram-alerted today (loaded from storage on init)
 
   /* ================= Clock / freshness ================= */
   function renderClock() {
@@ -378,65 +372,18 @@
     return idx;
   }
 
-  /* ================= Telegram 100% alerts ================= */
-  async function loadAlertedSymbols(dateKey) {
-    try {
-      const res = await window.storage.get('tg_alerted:' + dateKey, false);
-      return res ? new Set(JSON.parse(res.value)) : new Set();
-    } catch (e) { return new Set(); }
-  }
-  async function saveAlertedSymbols(dateKey, set) {
-    try { await window.storage.set('tg_alerted:' + dateKey, JSON.stringify([...set]), false); }
-    catch (e) { console.error('tg_alerted save failed', e); }
-  }
-
-  async function sendTelegramAlert(row) {
-    const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' });
-    const text =
-      `🚨 100%+ MOVER\n` +
-      `${row.symbol}${row.name ? ' — ' + row.name : ''}\n` +
-      `Move: ${fmtPct(row.pct_change)}\n` +
-      `Fired: ${timeStr} ET\n` +
-      `Mkt Cap: ${fmtMarketCap(row.market_cap)}`;
-
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    try {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
-      });
-      if (!r.ok) console.error('Telegram send failed', r.status, await r.text());
-    } catch (e) {
-      console.error('Telegram send error', e);
-    }
-  }
-
-  async function checkTelegramAlerts(rows, dateKey) {
-    const newlyFired = rows.filter(r =>
-      Number(r.pct_change) >= TELEGRAM_ALERT_THRESHOLD && !alertedSymbols.has(r.symbol)
-    );
-    if (newlyFired.length === 0) return;
-
-    for (const row of newlyFired) {
-      alertedSymbols.add(row.symbol);
-      await sendTelegramAlert(row);
-    }
-    await saveAlertedSymbols(dateKey, alertedSymbols);
-  }
-
-  /* ================= Massive fetchers ================= */
+  /* ================= Massive fetchers (via proxy) ================= */
   async function fetchFloat(ticker) {
-    const url = `${MASSIVE_BASE}/stocks/vX/float?ticker=${encodeURIComponent(ticker)}&apiKey=${MASSIVE_API_KEY}`;
-    const r = await fetch(url);
+    const url = `${MASSIVE_BASE}/stocks/vX/float?ticker=${encodeURIComponent(ticker)}`;
+    const r = await fetch(url, { headers: { 'x-proxy-secret': PROXY_SECRET } });
     if (!r.ok) throw new Error('Float lookup failed (' + r.status + ')');
     const data = await r.json();
     const row = (data.results && data.results[0]) || null;
     return row ? row.free_float : null;
   }
   async function fetchNews(ticker) {
-    const url = `${MASSIVE_BASE}/v2/reference/news?ticker=${encodeURIComponent(ticker)}&limit=5&order=desc&sort=published_utc&apiKey=${MASSIVE_API_KEY}`;
-    const r = await fetch(url);
+    const url = `${MASSIVE_BASE}/v2/reference/news?ticker=${encodeURIComponent(ticker)}&limit=5&order=desc&sort=published_utc`;
+    const r = await fetch(url, { headers: { 'x-proxy-secret': PROXY_SECRET } });
     if (!r.ok) throw new Error('News lookup failed (' + r.status + ')');
     const data = await r.json();
     return data.results || [];
@@ -458,8 +405,8 @@
     const flooredMinutes = Math.floor(nowMinutes / 15) * 15;
     const endHM = String(Math.floor(flooredMinutes / 60)).padStart(2, '0') + ':' + String(flooredMinutes % 60).padStart(2, '0');
 
-    const url = `${MASSIVE_BASE}/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/15/minute/${fmt(from)}/${fmt(to)}?adjusted=true&sort=asc&limit=5000&apiKey=${MASSIVE_API_KEY}`;
-    const r = await fetch(url);
+    const url = `${MASSIVE_BASE}/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/15/minute/${fmt(from)}/${fmt(to)}?adjusted=true&sort=asc&limit=5000`;
+    const r = await fetch(url, { headers: { 'x-proxy-secret': PROXY_SECRET } });
     if (!r.ok) throw new Error('Aggregates lookup failed (' + r.status + ')');
     const data = await r.json();
     const bars = data.results || [];
@@ -485,8 +432,8 @@
     return total / days.length;
   }
   async function fetchLastSplit(ticker) {
-    const url = `${MASSIVE_BASE}/v3/reference/splits?ticker=${encodeURIComponent(ticker)}&limit=5&sort=execution_date.desc&apiKey=${MASSIVE_API_KEY}`;
-    const r = await fetch(url);
+    const url = `${MASSIVE_BASE}/v3/reference/splits?ticker=${encodeURIComponent(ticker)}&limit=5&sort=execution_date.desc`;
+    const r = await fetch(url, { headers: { 'x-proxy-secret': PROXY_SECRET } });
     if (!r.ok) return null;
     const data = await r.json();
     const rows = data.results || [];
@@ -497,8 +444,8 @@
     return { date: last.execution_date, from: last.split_from, to: last.split_to, isReverse, recentReverse: isReverse && monthsAgo <= 18 };
   }
   async function fetchProfile(ticker) {
-    const url = `${FMP_BASE}/profile?symbol=${encodeURIComponent(ticker)}&apikey=${FMP_API_KEY}`;
-    const r = await fetch(url);
+    const url = `${FMP_BASE}/profile?symbol=${encodeURIComponent(ticker)}`;
+    const r = await fetch(url, { headers: { 'x-proxy-secret': PROXY_SECRET } });
     if (!r.ok) throw new Error('Profile lookup failed (' + r.status + ')');
     const data = await r.json();
     return (Array.isArray(data) && data[0]) ? data[0] : null;
@@ -701,7 +648,8 @@
     }
 
     currentRows = data || [];
-    checkTelegramAlerts(currentRows, todayKeyET());
+    // Telegram alerts now fire server-side via the Deno cron job (tg_alert_cron.ts),
+    // independent of this page being open — no client-side call needed here anymore.
 
     if (currentRows.length === 0) {
       rowsEl.innerHTML = "";
@@ -770,12 +718,50 @@
     renderMoversTable();
   }
 
+  /* ================= Telegram: post analysis card ================= */
+  function analysisToTelegramText(d) {
+    const p = d.profile || {};
+    const country = p.country || '—';
+    const industry = p.industry || p.sector || '—';
+    const exchange = p.exchangeShortName || p.exchange || '—';
+    const splitLine = d.split ? `${d.split.from}:${d.split.to} on ${d.split.date}${d.split.isReverse ? ' (reverse)' : ''}` : 'None on record';
+    const flagsLine = d.flags.length === 0 ? 'None triggered' : d.flags.map(f => `• ${f}`).join('\n');
+
+    return (
+      `📋 ${d.ticker} — ${p.companyName || d.ticker}\n` +
+      `Score: ${d.score}/10 | Squeeze: ${d.squeeze}\n` +
+      `Gap: ${fmtPct(d.gapPct)} | RelVol: ${d.relVol != null ? d.relVol.toFixed(2) + 'x' : '—'}\n\n` +
+      `Industry: ${industry}\n` +
+      `Country: ${country}\n` +
+      `Exchange: ${exchange}\n` +
+      `Market cap: ${fmtMoney(p.marketCap)}\n` +
+      `Float: ${fmtNum(d.float)}\n` +
+      `60d avg vol: ${fmtNum(d.avgVol)}\n` +
+      `Last split: ${splitLine}\n\n` +
+      `Red flags:\n${flagsLine}`
+    );
+  }
+
+  async function postAnalysisToTelegram(d) {
+    try {
+      const r = await fetch(RELAY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-alert-secret': RELAY_SECRET },
+        body: JSON.stringify({ text: analysisToTelegramText(d) })
+      });
+      if (!r.ok) console.error('Telegram relay failed', r.status, await r.text());
+    } catch (e) {
+      console.error('Telegram relay error', e);
+    }
+  }
+
   async function runAnalysis(row) {
     const dateKey = todayKeyET();
     const cacheKey = `${dateKey}:${row.symbol}`;
     try {
       const analysis = await analyzeStock(row);
       analysisCache[cacheKey] = analysis;
+      postAnalysisToTelegram(analysis); // fire-and-forget, don't block rendering
 
       // persist into today's leaderboard
       const entries = await loadEntries(dateKey);
@@ -853,7 +839,6 @@
   /* ================= Init ================= */
   (async function init() {
     const today = todayKeyET();
-    alertedSymbols = await loadAlertedSymbols(today);
     await addToDateIndex(today);
     await refreshDateSelect(today);
     await renderLeaderboard(today);
