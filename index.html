@@ -249,6 +249,26 @@
   <div id="empty" class="empty" style="display:none;">No data yet — waiting on the next scan.</div>
   <div id="error" class="error" style="display:none;"></div>
 
+  <h2 style="margin-top:32px;">Verified Movers <span style="font-weight:400;color:var(--text-dim,#888);font-size:13px;">— filtered against yesterday's real after-hours close</span></h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Name</th>
+        <th class="num">Real Move</th>
+        <th class="num">Since Close</th>
+        <th class="num">Price</th>
+        <th class="num">Volume</th>
+        <th class="num">Mkt Cap</th>
+      </tr>
+    </thead>
+    <tbody id="verifiedRows"></tbody>
+  </table>
+
+  <div id="verifiedEmpty" class="empty" style="display:none;">Nothing currently clears the real-move threshold.</div>
+  <div id="verifiedError" class="error" style="display:none;"></div>
+
   <footer id="updated"></footer>
 </div>
 
@@ -375,9 +395,50 @@
       </tr>`).join('');
   }
 
+  /* ================= Verified movers table ================= */
+  async function loadVerifiedMovers() {
+    const rowsEl = document.getElementById("verifiedRows");
+    const emptyEl = document.getElementById("verifiedEmpty");
+    const errorEl = document.getElementById("verifiedError");
+    errorEl.style.display = "none";
+    emptyEl.style.display = "none";
+
+    const { data, error } = await supabase
+      .from("verified_movers")
+      .select("*")
+      .order("real_move", { ascending: false });
+
+    if (error) {
+      errorEl.textContent = "Couldn't load data: " + error.message;
+      errorEl.style.display = "block";
+      rowsEl.innerHTML = "";
+      return;
+    }
+
+    const rows = data || [];
+    if (rows.length === 0) {
+      rowsEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      return;
+    }
+
+    rowsEl.innerHTML = rows.map(r => `
+      <tr class="mover-row">
+        <td class="symbol">${r.symbol}</td>
+        <td class="name">${r.name ?? ""}</td>
+        <td class="num pct ${r.real_move >= 0 ? "pos" : "neg"}">${fmtPct(r.real_move)}</td>
+        <td class="num pct ${r.pct_change >= 0 ? "pos" : "neg"}">${fmtPct(r.pct_change)}</td>
+        <td class="num">${r.price ?? "—"}</td>
+        <td class="num">${fmtFull(r.volume)}</td>
+        <td class="num">${fmtMarketCap(r.market_cap)}</td>
+      </tr>`).join('');
+  }
+
   /* ================= Init ================= */
   (async function init() {
     await loadMovers(currentList);
+    await loadVerifiedMovers();
+    setInterval(loadVerifiedMovers, 15000);
     setInterval(() => loadMovers(currentList), 30000);
     renderClock();
     setInterval(renderClock, 1000);
