@@ -269,6 +269,26 @@
   <div id="verifiedEmpty" class="empty" style="display:none;">Nothing currently clears the real-move threshold.</div>
   <div id="verifiedError" class="error" style="display:none;"></div>
 
+  <h2 style="margin-top:32px;">Alert Log <span style="font-weight:400;color:var(--text-dim,#888);font-size:13px;">— every alert ever fired, most recent first</span></h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Name</th>
+        <th class="num">Real Move</th>
+        <th class="num">Since Close</th>
+        <th class="num">Price</th>
+        <th class="num">Mkt Cap</th>
+        <th>Fired</th>
+      </tr>
+    </thead>
+    <tbody id="alertLogRows"></tbody>
+  </table>
+
+  <div id="alertLogEmpty" class="empty" style="display:none;">No alerts fired yet.</div>
+  <div id="alertLogError" class="error" style="display:none;"></div>
+
   <footer id="updated"></footer>
 </div>
 
@@ -434,11 +454,56 @@
       </tr>`).join('');
   }
 
+  /* ================= Alert log ================= */
+  async function loadAlertLog() {
+    const rowsEl = document.getElementById("alertLogRows");
+    const emptyEl = document.getElementById("alertLogEmpty");
+    const errorEl = document.getElementById("alertLogError");
+    errorEl.style.display = "none";
+    emptyEl.style.display = "none";
+
+    const { data, error } = await supabase
+      .from("tg_alerts")
+      .select("*")
+      .order("fired_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      errorEl.textContent = "Couldn't load data: " + error.message;
+      errorEl.style.display = "block";
+      rowsEl.innerHTML = "";
+      return;
+    }
+
+    const rows = data || [];
+    if (rows.length === 0) {
+      rowsEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      return;
+    }
+
+    rowsEl.innerHTML = rows.map(r => {
+      const firedTime = r.fired_at ? new Date(r.fired_at).toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' }) : "—";
+      return `
+      <tr class="mover-row">
+        <td class="symbol">${r.symbol}</td>
+        <td class="name">${r.name ?? ""}</td>
+        <td class="num pct ${r.real_move >= 0 ? "pos" : "neg"}">${fmtPct(r.real_move)}</td>
+        <td class="num pct ${r.pct_change >= 0 ? "pos" : "neg"}">${fmtPct(r.pct_change)}</td>
+        <td class="num">${r.price ?? "—"}</td>
+        <td class="num">${fmtMarketCap(r.market_cap)}</td>
+        <td>${firedTime} ET</td>
+      </tr>`;
+    }).join('');
+  }
+
   /* ================= Init ================= */
   (async function init() {
     await loadMovers(currentList);
     await loadVerifiedMovers();
     setInterval(loadVerifiedMovers, 15000);
+    await loadAlertLog();
+    setInterval(loadAlertLog, 15000);
     setInterval(() => loadMovers(currentList), 30000);
     renderClock();
     setInterval(renderClock, 1000);
