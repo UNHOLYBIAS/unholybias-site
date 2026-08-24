@@ -135,6 +135,18 @@
   tbody tr.mover-row { border-bottom: 1px solid var(--border-soft); }
   tbody tr.mover-row:last-child { border-bottom: none; }
   tbody tr.mover-row:hover { background: var(--bg-row-hover); }
+  tbody tr.mover-row { cursor: pointer; }
+  tbody tr.news-row td {
+    background: var(--bg-panel);
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .news-item { padding: 6px 0; }
+  .news-item + .news-item { border-top: 1px solid var(--border-soft); }
+  .news-item a { color: var(--text); font-size: 12.5px; text-decoration: none; }
+  .news-item a:hover { color: var(--amber); text-decoration: underline; }
+  .news-meta { color: var(--text-faint); font-size: 10.5px; margin-top: 2px; }
+  .news-empty { color: var(--text-faint); font-size: 12px; padding: 4px 0; }
   tbody td { padding: 11px 14px; white-space: nowrap; }
 
   .symbol { color: var(--amber); font-weight: 600; letter-spacing: 0.02em; }
@@ -210,7 +222,7 @@
 
   <div class="section-head">
     <h2>Verified Movers</h2>
-    <span class="sub">— filtered against yesterday's real after-hours close</span>
+    <span class="sub">— filtered against yesterday's real after-hours close · click a row for news</span>
   </div>
   <div class="table-scroll">
     <table>
@@ -233,7 +245,7 @@
 
   <div class="section-head">
     <h2>Alert Log</h2>
-    <span class="sub">— today's alerts, most recent first</span>
+    <span class="sub">— today's alerts, most recent first · click a row for news</span>
   </div>
   <div class="table-scroll">
     <table>
@@ -379,6 +391,36 @@
   }
 
   /* ================= Verified movers table ================= */
+  /* ================= Shared: expandable news row ================= */
+  function newsDetailHtml(news) {
+    if (!news || news.length === 0) {
+      return `<div class="news-empty">No news in the last 24h.</div>`;
+    }
+    return news.map(n => `
+      <div class="news-item">
+        <a href="${n.url}" target="_blank" rel="noopener">${n.headline}</a>
+        <div class="news-meta">${n.site ?? ""} · ${new Date(n.published_at).toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' })} ET</div>
+      </div>`).join('');
+  }
+
+  function wireExpandableRows(rowsEl, colSpan) {
+    rowsEl.querySelectorAll('tr.mover-row').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const next = tr.nextElementSibling;
+        const isOpen = next && next.classList.contains('news-row');
+        if (isOpen) {
+          next.remove();
+          return;
+        }
+        rowsEl.querySelectorAll('.news-row').forEach(n => n.remove());
+        const detail = document.createElement('tr');
+        detail.className = 'news-row';
+        detail.innerHTML = `<td colspan="${colSpan}">${newsDetailHtml(JSON.parse(tr.dataset.news || '[]'))}</td>`;
+        tr.after(detail);
+      });
+    });
+  }
+
   async function loadVerifiedMovers() {
     const rowsEl = document.getElementById("verifiedRows");
     const emptyEl = document.getElementById("verifiedEmpty");
@@ -406,7 +448,7 @@
     }
 
     rowsEl.innerHTML = rows.map(r => `
-      <tr class="mover-row">
+      <tr class="mover-row" data-news='${JSON.stringify(r.news ?? [])}'>
         <td class="symbol">${r.symbol}</td>
         <td class="name">${r.name ?? ""}</td>
         <td class="num pct ${r.real_move >= 0 ? "pos" : "neg"}">${fmtPct(r.real_move)}</td>
@@ -415,6 +457,8 @@
         <td class="num">${fmtFull(r.volume)}</td>
         <td class="num">${fmtMarketCap(r.market_cap)}</td>
       </tr>`).join('');
+
+    wireExpandableRows(rowsEl, 7);
   }
 
   /* ================= Alert log (today only) ================= */
@@ -448,7 +492,7 @@
     rowsEl.innerHTML = rows.map(r => {
       const firedTime = r.fired_at ? new Date(r.fired_at).toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' }) : "—";
       return `
-      <tr class="mover-row">
+      <tr class="mover-row" data-news='${JSON.stringify(r.news ?? [])}'>
         <td class="symbol">${r.symbol}</td>
         <td class="name">${r.name ?? ""}</td>
         <td class="num pct ${r.real_move >= 0 ? "pos" : "neg"}">${fmtPct(r.real_move)}</td>
@@ -458,6 +502,8 @@
         <td class="time-cell">${firedTime} ET</td>
       </tr>`;
     }).join('');
+
+    wireExpandableRows(rowsEl, 7);
   }
 
   /* ================= Init ================= */
