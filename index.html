@@ -123,6 +123,30 @@
     display: block;
   }
 
+  .levels-strip {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    padding-bottom: 14px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .levels-strip .level-label {
+    color: var(--text-dim);
+    margin-right: 5px;
+  }
+
+  .levels-strip .poc-value {
+    color: var(--amber);
+  }
+
+  .tv-widget {
+    width: 100%;
+    height: 420px;
+  }
+
   .news-panel {
     padding: 20px 20px;
     max-height: 720px;
@@ -229,8 +253,11 @@
 
 <main>
   <div class="chart-panel">
-    <div class="panel-title">TODAY — RTH 1-MIN</div>
-    <canvas id="chart-canvas"></canvas>
+    <div class="panel-title">LEVELS</div>
+    <div id="chart-levels-strip" class="mono levels-strip">
+      <span class="empty-state">Loading levels…</span>
+    </div>
+    <div id="tradingview_chart" class="tv-widget"></div>
   </div>
 
   <div class="news-panel" id="news-panel">
@@ -264,18 +291,21 @@
 // The anon key is safe to expose client-side; it only has the
 // read-only SELECT policies defined in supabase-schema.sql.
 // ============================================================
-const SUPABASE_URL = "https://ktffoamoqldvsxvlahnd.supabase.co"; // e.g. https://xxxx.supabase.co
-const SUPABASE_ANON_KEY = "sb_publishable_P-Lxn5HGmIcgULsv4yxEFg_C47UFsHP";
+const SUPABASE_URL = "YOUR_SUPABASE_URL"; // e.g. https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 const REFRESH_INTERVAL_MS = 15000; // poll Supabase every 15s while the tab is open
 
 async function sb(path) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-  });
+  // New-format publishable keys (sb_publishable_...) must travel only on the
+  // apikey header — sending them as a Bearer token too can cause a 401.
+  // Legacy anon (JWT) keys are fine either way, so this only sends
+  // Authorization when the key looks like a legacy JWT.
+  const isLegacyJwt = SUPABASE_ANON_KEY.split(".").length === 3;
+  const headers = { apikey: SUPABASE_ANON_KEY };
+  if (isLegacyJwt) headers.Authorization = `Bearer ${SUPABASE_ANON_KEY}`;
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers });
   if (!res.ok) throw new Error(`Supabase read failed: ${path} (${res.status})`);
   return res.json();
 }
@@ -340,62 +370,64 @@ async function refreshLiveState() {
 }
 
 // ------------------------------------------------------------------
-// Chart — simple canvas candlestick renderer, today's RTH candles only
+// Chart — TradingView embed (their own live data, not through Finnhub)
 // ------------------------------------------------------------------
 
-async function refreshChart() {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const candles = await sb(
-    `tsla_candles_1m?ts=gte.${todayStart.toISOString()}&order=ts.asc&select=*`
-  );
-  drawCandles(candles);
+function initTradingViewWidget() {
+  const script = document.createElement("script");
+  script.src = "https://s3.tradingview.com/tv.js";
+  script.onload = () => {
+    // eslint-disable-next-line no-undef
+    new TradingView.widget({
+      autosize: true,
+      symbol: "NASDAQ:TSLA",
+      interval: "1",
+      timezone: "America/New_York",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      toolbar_bg: "#1C1F26",
+      backgroundColor: "#14161A",
+      gridColor: "rgba(232,230,223,0.06)",
+      enable_publishing: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      save_image: false,
+      container_id: "tradingview_chart",
+    });
+  };
+  document.head.appendChild(script);
 }
 
-function drawCandles(candles) {
-  const canvas = document.getElementById("chart-canvas");
-  const ctx = canvas.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight || 360;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, width, height);
+// ------------------------------------------------------------------
+// Compact S/R + POC strip shown directly above the chart
+// ------------------------------------------------------------------
 
-  if (!candles || candles.length === 0) {
-    ctx.fillStyle = "#8A8D96";
-    ctx.font = "13px 'IBM Plex Mono', monospace";
-    ctx.fillText("No candles yet for today's RTH session.", 12, 24);
+async function refreshChartLevelsStrip() {
+  const strip = document.getElementById("chart-levels-strip");
+  const [levelRows, profileRows] = await Promise.all([
+    sb("daily_levels?order=trade_date.desc&limit=1&select=*"),
+    sb("volume_profile_composite?window_label=eq.5day&select=*"),
+  ]);
+  const level = levelRows[0];
+  const profile = profileRows[0];
+
+  if (!level && !profile) {
+    strip.innerHTML = '<span class="empty-state">No levels yet.</span>';
     return;
   }
 
-  const prices = candles.flatMap((c) => [c.high, c.low]);
-  const maxP = Math.max(...prices);
-  const minP = Math.min(...prices);
-  const pad = (maxP - minP) * 0.08 || 1;
-  const yMax = maxP + pad;
-  const yMin = minP - pad;
-
-  const candleWidth = Math.max(2, width / candles.length - 2);
-  const yScale = (p) => height - ((p - yMin) / (yMax - yMin)) * height;
-
-  candles.forEach((c, i) => {
-    const x = i * (width / candles.length) + 1;
-    const isUp = c.close >= c.open;
-    ctx.strokeStyle = ctx.fillStyle = isUp ? "#4FA97C" : "#D1533D";
-
-    // wick
-    ctx.beginPath();
-    ctx.moveTo(x + candleWidth / 2, yScale(c.high));
-    ctx.lineTo(x + candleWidth / 2, yScale(c.low));
-    ctx.stroke();
-
-    // body
-    const bodyTop = yScale(Math.max(c.open, c.close));
-    const bodyBottom = yScale(Math.min(c.open, c.close));
-    ctx.fillRect(x, bodyTop, candleWidth, Math.max(1, bodyBottom - bodyTop));
-  });
+  const parts = [];
+  if (level) {
+    parts.push(`<span><span class="level-label">Prior H/L</span>${fmtPrice(level.low)} / ${fmtPrice(level.high)}</span>`);
+    parts.push(`<span><span class="level-label">Gap</span>${fmtPrice(level.gap_open)}</span>`);
+    parts.push(`<span><span class="level-label">POC (1d)</span><span class="poc-value">${fmtPrice(level.poc)}</span></span>`);
+  }
+  if (profile) {
+    parts.push(`<span><span class="level-label">POC (5d)</span><span class="poc-value">${fmtPrice(profile.poc)}</span></span>`);
+    parts.push(`<span><span class="level-label">VAH/VAL (5d)</span>${fmtPrice(profile.vah)} / ${fmtPrice(profile.val)}</span>`);
+  }
+  strip.innerHTML = parts.join("");
 }
 
 // ------------------------------------------------------------------
@@ -487,7 +519,7 @@ async function refreshPeers() {
 // ------------------------------------------------------------------
 
 async function refreshAll() {
-  const tasks = [refreshLiveState(), refreshChart(), refreshNews(), refreshLevels(), refreshVolumeProfile(), refreshPeers()];
+  const tasks = [refreshLiveState(), refreshChartLevelsStrip(), refreshNews(), refreshLevels(), refreshVolumeProfile(), refreshPeers()];
   const results = await Promise.allSettled(tasks);
   results.forEach((r) => { if (r.status === "rejected") console.error(r.reason); });
 }
@@ -498,9 +530,9 @@ if (SUPABASE_URL === "YOUR_SUPABASE_URL") {
     el.textContent = "Set SUPABASE_URL and SUPABASE_ANON_KEY in index.html to connect.";
   });
 } else {
+  initTradingViewWidget(); // one-time — TradingView streams its own live updates
   refreshAll();
   setInterval(refreshAll, REFRESH_INTERVAL_MS);
-  window.addEventListener("resize", refreshChart);
 }
 </script>
 
