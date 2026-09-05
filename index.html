@@ -3,521 +3,506 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Premarket Desk — unholybias</title>
+<title>TSLA — Terminal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0b0d;
-    --bg-row-hover: #131519;
-    --bg-panel: #16181c;
-    --border: #23262b;
-    --border-soft: #1b1d21;
-    --text: #e4e4e0;
-    --text-dim: #6e7278;
-    --text-faint: #45484d;
-    --amber: #f2a53d;
-    --green: #4ade80;
-    --red: #f87171;
+    --bg: #14161A;
+    --panel: #1C1F26;
+    --line: #2A2E37;
+    --text: #E8E6DF;
+    --text-dim: #8A8D96;
+    --up: #4FA97C;
+    --down: #D1533D;
+    --amber: #D9A441;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { scrollbar-color: var(--border) var(--bg); }
+  * { box-sizing: border-box; }
 
   body {
+    margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: 'IBM Plex Mono', monospace;
-    padding: 28px 18px 72px;
+    font-family: 'Space Grotesk', sans-serif;
     min-height: 100vh;
-    line-height: 1.4;
   }
 
-  .wrap { max-width: 1040px; margin: 0 auto; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
 
-  /* ---------- header ---------- */
-  header {
+  header.masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header.masthead .ticker-name {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  header.masthead .status {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .status.live::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--up);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 10px 24px 18px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+
+  .price-row .last-price {
+    font-size: 40px;
+    font-weight: 500;
+  }
+
+  .price-row .change {
+    font-size: 18px;
+  }
+
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+
+  .stat-strip {
+    display: flex;
+    gap: 28px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+
+  .stat-strip .stat-label {
+    color: var(--text-dim);
+    margin-right: 6px;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .chart-panel {
+    padding: 20px 24px;
+    border-right: 1px solid var(--line);
+  }
+
+  .panel-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+  }
+
+  #chart-canvas {
+    width: 100%;
+    height: 360px;
+    display: block;
+  }
+
+  .news-panel {
+    padding: 20px 20px;
+    max-height: 720px;
+    overflow-y: auto;
+  }
+
+  .news-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .news-item:last-child { border-bottom: none; }
+
+  .news-item .headline {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+  }
+
+  .news-item .meta {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 10px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 18px;
-    margin-bottom: 30px;
+    font-size: 11px;
+    color: var(--text-dim);
   }
 
-  h1 {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--amber);
-  }
-  h1::before { content: "// "; color: var(--text-dim); }
-  h1::after {
-    content: "▌";
-    display: inline-block;
-    margin-left: 6px;
-    color: var(--amber);
-    animation: blink 1.1s steps(1) infinite;
-  }
-  @keyframes blink { 50% { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) {
-    h1::after { animation: none; }
-  }
-
-  .clock-wrap { display: flex; align-items: center; gap: 14px; }
-  #clock {
-    font-size: 12px;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.03em;
-  }
-  #clock .tz { color: var(--text-dim); font-size: 10px; margin-left: 4px; }
-
-  #status { font-size: 11px; color: var(--text-dim); letter-spacing: 0.03em; display: inline-flex; align-items: center; gap: 6px; }
-  #status .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--text-faint);
-    display: inline-block;
-  }
-  #status.live .dot { background: var(--green); animation: pulse 1.8s ease-in-out infinite; }
-  #status.error .dot { background: var(--red); }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
-    50% { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #status.live .dot { animation: none; }
-  }
-
-  /* ---------- section headers ---------- */
-  .section-head {
+  .news-item .tags {
+    margin-top: 6px;
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    gap: 6px;
     flex-wrap: wrap;
-    margin: 38px 0 14px;
-    padding-left: 10px;
-    border-left: 2px solid var(--amber);
   }
-  .section-head:first-of-type { margin-top: 0; }
-  .section-head h2 {
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--text);
-  }
-  .section-head .sub { font-size: 11.5px; color: var(--text-dim); }
 
-  /* ---------- tables ---------- */
-  .table-scroll { overflow-x: auto; border: 1px solid var(--border-soft); border-radius: 6px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 560px; }
-
-  thead th {
-    text-align: left;
-    font-weight: 500;
+  .tag {
     font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    padding: 10px 14px;
-    background: var(--bg-panel);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
+    padding: 2px 7px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--amber);
   }
-  thead th.num, tbody td.num { text-align: right; }
 
-  tbody tr.mover-row { border-bottom: 1px solid var(--border-soft); }
-  tbody tr.mover-row:last-child { border-bottom: none; }
-  tbody tr.mover-row:hover { background: var(--bg-row-hover); }
-  tbody tr.mover-row { cursor: pointer; }
-  tbody tr.news-row td {
-    background: var(--bg-panel);
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border-soft);
+  .lower-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-top: 1px solid var(--line);
   }
-  .news-item { padding: 6px 0; }
-  .news-item + .news-item { border-top: 1px solid var(--border-soft); }
-  .news-item a { color: var(--text); font-size: 12.5px; text-decoration: none; }
-  .news-item a:hover { color: var(--amber); text-decoration: underline; }
-  .news-meta { color: var(--text-faint); font-size: 10.5px; margin-top: 2px; }
-  .news-empty { color: var(--text-faint); font-size: 12px; padding: 4px 0; }
-  tbody td { padding: 11px 14px; white-space: nowrap; }
 
-  .symbol { color: var(--amber); font-weight: 600; letter-spacing: 0.02em; }
-  .name { color: var(--text-dim); font-size: 12px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pct.pos { color: var(--green); }
-  .pct.neg { color: var(--red); }
-  .time-cell { color: var(--text-dim); font-size: 12px; }
+  @media (max-width: 900px) {
+    .lower-strip { grid-template-columns: 1fr; }
+  }
 
-  /* ---------- states ---------- */
-  .empty, .error {
-    text-align: center;
-    color: var(--text-dim);
-    padding: 36px 16px;
+  .lower-panel {
+    padding: 18px 24px;
+    border-right: 1px solid var(--line);
+  }
+
+  .lower-panel:last-child { border-right: none; }
+
+  .level-row, .peer-row {
+    display: flex;
+    justify-content: space-between;
     font-size: 13px;
-    border: 1px dashed var(--border);
-    border-radius: 6px;
-    margin-top: 2px;
+    padding: 5px 0;
   }
-  .error { color: var(--red); border-color: var(--border-red, rgba(248,113,113,0.28)); }
 
-  /* ---------- footer ---------- */
-  footer#updated {
-    margin-top: 32px;
-    text-align: center;
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    font-variant-numeric: tabular-nums;
+  .level-row .level-label, .peer-row .peer-ticker {
     color: var(--text-dim);
   }
-  footer#updated.fresh { color: var(--green); }
-  footer#updated.warn { color: var(--amber); }
-  footer#updated.stale { color: var(--red); }
 
-  @media (max-width: 640px) {
-    body { padding: 20px 12px 56px; }
-    .name { display: none; }
-    thead th:nth-child(2), tbody td:nth-child(2) { display: none; }
-    table { min-width: 480px; }
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 12px 0;
+  }
+
+  footer {
+    padding: 14px 24px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--line);
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Premarket Desk</h1>
-    <span class="clock-wrap">
-      <span id="clock">--:--:--<span class="tz">ET</span></span>
-      <span id="status"><span class="dot"></span>connecting…</span>
-    </span>
-  </header>
 
-  <div class="section-head">
-    <h2>Movers</h2>
-    <span class="sub">— raw scrape, since yesterday's regular-session close</span>
-  </div>
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Name</th>
-          <th class="num">% Chg</th>
-          <th class="num">Price</th>
-          <th class="num">Volume</th>
-          <th class="num">Mkt Cap</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-  <div id="empty" class="empty" style="display:none;">No data yet — waiting on the next scan.</div>
-  <div id="error" class="error" style="display:none;"></div>
+<header class="masthead">
+  <div class="ticker-name">TSLA</div>
+  <div class="status live mono" id="market-status">connecting…</div>
+</header>
 
-  <div class="section-head">
-    <h2>Verified Movers</h2>
-    <span class="sub">— filtered against yesterday's real after-hours close · click a row for news</span>
-  </div>
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Name</th>
-          <th class="num">Real Move</th>
-          <th class="num">Since Close</th>
-          <th class="num">Price</th>
-          <th class="num">Volume</th>
-          <th class="num">Mkt Cap</th>
-        </tr>
-      </thead>
-      <tbody id="verifiedRows"></tbody>
-    </table>
-  </div>
-  <div id="verifiedEmpty" class="empty" style="display:none;">Nothing currently clears the real-move threshold.</div>
-  <div id="verifiedError" class="error" style="display:none;"></div>
-
-  <div class="section-head">
-    <h2>Alert Log</h2>
-    <span class="sub">— today's alerts, most recent first · click a row for news</span>
-  </div>
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Name</th>
-          <th class="num">Real Move</th>
-          <th class="num">Since Close</th>
-          <th class="num">Price</th>
-          <th class="num">Mkt Cap</th>
-          <th>Fired</th>
-        </tr>
-      </thead>
-      <tbody id="alertLogRows"></tbody>
-    </table>
-  </div>
-  <div id="alertLogEmpty" class="empty" style="display:none;">No alerts fired today yet.</div>
-  <div id="alertLogError" class="error" style="display:none;"></div>
-
-  <footer id="updated"></footer>
+<div class="price-row mono">
+  <div class="last-price" id="last-price">—</div>
+  <div class="change" id="price-change">—</div>
 </div>
 
+<div class="stat-strip mono">
+  <div><span class="stat-label">Day H/L</span><span id="stat-day-hl">—</span></div>
+  <div><span class="stat-label">PM H/L</span><span id="stat-pm-hl">—</span></div>
+  <div><span class="stat-label">Prev Close</span><span id="stat-prev-close">—</span></div>
+  <div><span class="stat-label">Volume</span><span id="stat-volume">—</span></div>
+  <div><span class="stat-label">RVOL</span><span id="stat-rvol">—</span></div>
+  <div><span class="stat-label">VWAP</span><span id="stat-vwap">—</span></div>
+</div>
+
+<main>
+  <div class="chart-panel">
+    <div class="panel-title">TODAY — RTH 1-MIN</div>
+    <canvas id="chart-canvas"></canvas>
+  </div>
+
+  <div class="news-panel" id="news-panel">
+    <div class="panel-title">NEWS</div>
+    <div class="empty-state">Loading news feed…</div>
+  </div>
+</main>
+
+<div class="lower-strip">
+  <div class="lower-panel">
+    <div class="panel-title">SUPPORT / RESISTANCE</div>
+    <div id="sr-levels" class="mono"><div class="empty-state">Loading levels…</div></div>
+  </div>
+  <div class="lower-panel">
+    <div class="panel-title">VOLUME PROFILE</div>
+    <div id="volume-profile" class="mono"><div class="empty-state">Loading profile…</div></div>
+  </div>
+  <div class="lower-panel">
+    <div class="panel-title">PEER MONITOR</div>
+    <div id="peer-monitor" class="mono"><div class="empty-state">Loading peers…</div></div>
+  </div>
+</div>
+
+<footer class="mono">
+  TSLA terminal — data via Finnhub, Massive, Alpaca (free tiers) — RTH-only live chart, full-picture history via daily backfill.
+</footer>
+
 <script>
-(function () {
-  /* ================= CONFIG ================= */
-  const SUPABASE_URL = "https://kwgkbqhcmimypcrfbqym.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_dPi7qx_l1OYRFhnddPv84Q_AA7bl1eI";
+// ============================================================
+// Configuration — fill these in with your Supabase project details.
+// The anon key is safe to expose client-side; it only has the
+// read-only SELECT policies defined in supabase-schema.sql.
+// ============================================================
+const SUPABASE_URL = "YOUR_SUPABASE_URL"; // e.g. https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
-  // Telegram alerting happens server-side via tg_alert_cron.ts on Deno Deploy —
-  // no dependency on this page being open. This page just displays what the
-  // scraper and alert cron write to Supabase.
+const REFRESH_INTERVAL_MS = 15000; // poll Supabase every 15s while the tab is open
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+async function sb(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+  if (!res.ok) throw new Error(`Supabase read failed: ${path} (${res.status})`);
+  return res.json();
+}
 
-  let currentList = "gainers";
-  let currentRows = [];
-  let latestUpdatedAt = null;
+function fmtPrice(n) {
+  return n === null || n === undefined ? "—" : Number(n).toFixed(2);
+}
 
-  /* ================= Clock / freshness ================= */
-  function renderClock() {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' });
-    document.getElementById('clock').innerHTML = `${timeStr}<span class="tz">ET</span>`;
+function fmtPct(n) {
+  if (n === null || n === undefined) return "—";
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${Number(n).toFixed(2)}%`;
+}
 
-    const updatedEl = document.getElementById('updated');
-    if (!latestUpdatedAt) return;
+function fmtVolume(n) {
+  if (!n) return "—";
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return String(n);
+}
 
-    const secsAgo = Math.max(0, Math.round((now - latestUpdatedAt) / 1000));
-    const agoStr = secsAgo < 60 ? `${secsAgo}s ago` : `${Math.floor(secsAgo / 60)}m ${secsAgo % 60}s ago`;
-    const lastStr = latestUpdatedAt.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' });
+function timeAgo(iso) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
-    updatedEl.textContent = `last updated ${lastStr} ET — ${agoStr}`;
-    updatedEl.classList.remove('fresh', 'warn', 'stale');
-    updatedEl.classList.add(secsAgo < 60 ? 'fresh' : secsAgo < 120 ? 'warn' : 'stale');
+// ------------------------------------------------------------------
+// Header + stat strip
+// ------------------------------------------------------------------
+
+async function refreshLiveState() {
+  const rows = await sb("tsla_live_state?id=eq.1&select=*");
+  const state = rows[0];
+  if (!state) return;
+
+  document.getElementById("market-status").textContent = (state.market_status || "—").toUpperCase();
+  document.getElementById("last-price").textContent = "$" + fmtPrice(state.last_price);
+
+  const change = state.last_price && state.prev_close
+    ? state.last_price - state.prev_close
+    : null;
+  const pctChange = change !== null ? (change / state.prev_close) * 100 : null;
+  const changeEl = document.getElementById("price-change");
+  if (change !== null) {
+    changeEl.textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${fmtPct(pctChange)})`;
+    changeEl.className = "change mono " + (change >= 0 ? "up" : "down");
   }
 
-  /* ================= Formatting ================= */
-  function fmtNum(n) {
-    if (n === null || n === undefined) return "—";
-    return Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(n);
-  }
-  function fmtFull(n) {
-    if (n === null || n === undefined) return "—";
-    return Number(n).toLocaleString("en-US");
-  }
-  function fmtMarketCap(n) {
-    if (n === null || n === undefined) return "—";
-    n = Number(n);
-    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-    return fmtFull(n);
-  }
-  function fmtPct(n) {
-    if (n === null || n === undefined) return "—";
-    const sign = n > 0 ? "+" : "";
-    return `${sign}${Number(n).toFixed(2)}%`;
-  }
+  document.getElementById("stat-day-hl").textContent =
+    `${fmtPrice(state.day_low)} / ${fmtPrice(state.day_high)}`;
+  document.getElementById("stat-pm-hl").textContent =
+    `${fmtPrice(state.premarket_low)} / ${fmtPrice(state.premarket_high)}`;
+  document.getElementById("stat-prev-close").textContent = fmtPrice(state.prev_close);
+  document.getElementById("stat-volume").textContent = fmtVolume(state.day_volume);
+  document.getElementById("stat-rvol").textContent = state.rvol ? state.rvol.toFixed(2) + "x" : "—";
+  document.getElementById("stat-vwap").textContent = fmtPrice(state.vwap);
+}
 
-  /* ================= Date helpers ================= */
-  function todayKeyET() {
-    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
-    const map = {}; parts.forEach(p => map[p.type] = p.value);
-    return `${map.year}-${map.month}-${map.day}`;
-  }
+// ------------------------------------------------------------------
+// Chart — simple canvas candlestick renderer, today's RTH candles only
+// ------------------------------------------------------------------
 
-  /* ================= Movers table ================= */
-  async function loadMovers(listType) {
-    const statusEl = document.getElementById("status");
-    const rowsEl = document.getElementById("rows");
-    const emptyEl = document.getElementById("empty");
-    const errorEl = document.getElementById("error");
+async function refreshChart() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const candles = await sb(
+    `tsla_candles_1m?ts=gte.${todayStart.toISOString()}&order=ts.asc&select=*`
+  );
+  drawCandles(candles);
+}
 
-    statusEl.className = "";
-    statusEl.innerHTML = '<span class="dot"></span>loading…';
-    errorEl.style.display = "none";
-    emptyEl.style.display = "none";
+function drawCandles(candles) {
+  const canvas = document.getElementById("chart-canvas");
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight || 360;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
 
-    const { data, error } = await supabase
-      .from("premarket_movers")
-      .select("*")
-      .eq("list_type", listType)
-      .order("pct_change", { ascending: listType === "losers" });
-
-    if (error) {
-      statusEl.className = "error";
-      statusEl.innerHTML = '<span class="dot"></span>error';
-      errorEl.textContent = "Couldn't load data: " + error.message;
-      errorEl.style.display = "block";
-      rowsEl.innerHTML = "";
-      currentRows = [];
-      return;
-    }
-
-    currentRows = data || [];
-    statusEl.className = "live";
-    statusEl.innerHTML = '<span class="dot"></span>live';
-
-    if (currentRows.length === 0) {
-      rowsEl.innerHTML = "";
-      emptyEl.style.display = "block";
-      return;
-    }
-
-    renderMoversTable();
-
-    const latest = currentRows.reduce((a, b) => new Date(a.updated_at) > new Date(b.updated_at) ? a : b);
-    latestUpdatedAt = new Date(latest.updated_at);
-    renderClock();
+  if (!candles || candles.length === 0) {
+    ctx.fillStyle = "#8A8D96";
+    ctx.font = "13px 'IBM Plex Mono', monospace";
+    ctx.fillText("No candles yet for today's RTH session.", 12, 24);
+    return;
   }
 
-  function renderMoversTable() {
-    const rowsEl = document.getElementById("rows");
-    rowsEl.innerHTML = currentRows.map(r => `
-      <tr class="mover-row">
-        <td class="symbol">${r.symbol}</td>
-        <td class="name">${r.name ?? ""}</td>
-        <td class="num pct ${r.pct_change >= 0 ? "pos" : "neg"}">${fmtPct(r.pct_change)}</td>
-        <td class="num">${r.price ?? "—"}</td>
-        <td class="num">${fmtFull(r.volume)}</td>
-        <td class="num">${fmtMarketCap(r.market_cap)}</td>
-      </tr>`).join('');
+  const prices = candles.flatMap((c) => [c.high, c.low]);
+  const maxP = Math.max(...prices);
+  const minP = Math.min(...prices);
+  const pad = (maxP - minP) * 0.08 || 1;
+  const yMax = maxP + pad;
+  const yMin = minP - pad;
+
+  const candleWidth = Math.max(2, width / candles.length - 2);
+  const yScale = (p) => height - ((p - yMin) / (yMax - yMin)) * height;
+
+  candles.forEach((c, i) => {
+    const x = i * (width / candles.length) + 1;
+    const isUp = c.close >= c.open;
+    ctx.strokeStyle = ctx.fillStyle = isUp ? "#4FA97C" : "#D1533D";
+
+    // wick
+    ctx.beginPath();
+    ctx.moveTo(x + candleWidth / 2, yScale(c.high));
+    ctx.lineTo(x + candleWidth / 2, yScale(c.low));
+    ctx.stroke();
+
+    // body
+    const bodyTop = yScale(Math.max(c.open, c.close));
+    const bodyBottom = yScale(Math.min(c.open, c.close));
+    ctx.fillRect(x, bodyTop, candleWidth, Math.max(1, bodyBottom - bodyTop));
+  });
+}
+
+// ------------------------------------------------------------------
+// News feed
+// ------------------------------------------------------------------
+
+async function refreshNews() {
+  const items = await sb("tsla_news?order=published_at.desc&limit=25&select=*");
+  const panel = document.getElementById("news-panel");
+  panel.innerHTML = '<div class="panel-title">NEWS</div>';
+
+  if (!items || items.length === 0) {
+    panel.innerHTML += '<div class="empty-state">No news captured yet.</div>';
+    return;
   }
 
-  /* ================= Verified movers table ================= */
-  /* ================= Shared: expandable news row ================= */
-  function newsDetailHtml(news) {
-    if (!news || news.length === 0) {
-      return `<div class="news-empty">No news in the last 24h.</div>`;
-    }
-    return news.map(n => `
-      <div class="news-item">
-        <a href="${n.url}" target="_blank" rel="noopener">${n.headline}</a>
-        <div class="news-meta">${n.site ?? ""} · ${new Date(n.published_at).toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' })} ET</div>
-      </div>`).join('');
+  for (const item of items) {
+    const div = document.createElement("div");
+    div.className = "news-item";
+    const tagsHtml = (item.tags || [])
+      .map((t) => `<span class="tag">${t}</span>`)
+      .join("");
+    div.innerHTML = `
+      <div class="headline">${item.link
+        ? `<a href="${item.link}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${item.headline}</a>`
+        : item.headline}</div>
+      <div class="meta mono">
+        <span>${item.source} · ${timeAgo(item.published_at)}</span>
+        <span>score ${item.catalyst_score ?? "—"}</span>
+      </div>
+      <div class="tags">${tagsHtml}</div>
+    `;
+    panel.appendChild(div);
   }
+}
 
-  function wireExpandableRows(rowsEl, colSpan) {
-    rowsEl.querySelectorAll('tr.mover-row').forEach(tr => {
-      tr.addEventListener('click', () => {
-        const next = tr.nextElementSibling;
-        const isOpen = next && next.classList.contains('news-row');
-        if (isOpen) {
-          next.remove();
-          return;
-        }
-        rowsEl.querySelectorAll('.news-row').forEach(n => n.remove());
-        const detail = document.createElement('tr');
-        detail.className = 'news-row';
-        detail.innerHTML = `<td colspan="${colSpan}">${newsDetailHtml(JSON.parse(tr.dataset.news || '[]'))}</td>`;
-        tr.after(detail);
-      });
-    });
+// ------------------------------------------------------------------
+// S/R levels, volume profile, peer monitor
+// ------------------------------------------------------------------
+
+async function refreshLevels() {
+  const rows = await sb("daily_levels?order=trade_date.desc&limit=1&select=*");
+  const level = rows[0];
+  const container = document.getElementById("sr-levels");
+  if (!level) {
+    container.innerHTML = '<div class="empty-state">No daily levels yet.</div>';
+    return;
   }
+  container.innerHTML = `
+    <div class="level-row"><span class="level-label">Prior High</span><span>${fmtPrice(level.high)}</span></div>
+    <div class="level-row"><span class="level-label">Prior Low</span><span>${fmtPrice(level.low)}</span></div>
+    <div class="level-row"><span class="level-label">Prior Open</span><span>${fmtPrice(level.open)}</span></div>
+    <div class="level-row"><span class="level-label">Prior Close</span><span>${fmtPrice(level.close)}</span></div>
+    <div class="level-row"><span class="level-label">Gap</span><span>${fmtPrice(level.gap_open)}</span></div>
+  `;
+}
 
-  async function loadVerifiedMovers() {
-    const rowsEl = document.getElementById("verifiedRows");
-    const emptyEl = document.getElementById("verifiedEmpty");
-    const errorEl = document.getElementById("verifiedError");
-    errorEl.style.display = "none";
-    emptyEl.style.display = "none";
-
-    const { data, error } = await supabase
-      .from("verified_movers")
-      .select("*")
-      .order("real_move", { ascending: false });
-
-    if (error) {
-      errorEl.textContent = "Couldn't load data: " + error.message;
-      errorEl.style.display = "block";
-      rowsEl.innerHTML = "";
-      return;
-    }
-
-    const rows = data || [];
-    if (rows.length === 0) {
-      rowsEl.innerHTML = "";
-      emptyEl.style.display = "block";
-      return;
-    }
-
-    rowsEl.innerHTML = rows.map(r => `
-      <tr class="mover-row" data-news='${JSON.stringify(r.news ?? [])}'>
-        <td class="symbol">${r.symbol}</td>
-        <td class="name">${r.name ?? ""}</td>
-        <td class="num pct ${r.real_move >= 0 ? "pos" : "neg"}">${fmtPct(r.real_move)}</td>
-        <td class="num pct ${r.pct_change >= 0 ? "pos" : "neg"}">${fmtPct(r.pct_change)}</td>
-        <td class="num">${r.price ?? "—"}</td>
-        <td class="num">${fmtFull(r.volume)}</td>
-        <td class="num">${fmtMarketCap(r.market_cap)}</td>
-      </tr>`).join('');
-
-    wireExpandableRows(rowsEl, 7);
+async function refreshVolumeProfile() {
+  const rows = await sb("volume_profile_composite?select=*");
+  const container = document.getElementById("volume-profile");
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<div class="empty-state">No volume profile yet.</div>';
+    return;
   }
+  container.innerHTML = rows.map((r) => `
+    <div class="level-row"><span class="level-label">${r.window_label} POC</span><span>${fmtPrice(r.poc)}</span></div>
+    <div class="level-row"><span class="level-label">${r.window_label} VAH</span><span>${fmtPrice(r.vah)}</span></div>
+    <div class="level-row"><span class="level-label">${r.window_label} VAL</span><span>${fmtPrice(r.val)}</span></div>
+  `).join("");
+}
 
-  /* ================= Alert log (today only) ================= */
-  async function loadAlertLog() {
-    const rowsEl = document.getElementById("alertLogRows");
-    const emptyEl = document.getElementById("alertLogEmpty");
-    const errorEl = document.getElementById("alertLogError");
-    errorEl.style.display = "none";
-    emptyEl.style.display = "none";
-
-    const { data, error } = await supabase
-      .from("tg_alerts")
-      .select("*")
-      .eq("date", todayKeyET())
-      .order("fired_at", { ascending: false });
-
-    if (error) {
-      errorEl.textContent = "Couldn't load data: " + error.message;
-      errorEl.style.display = "block";
-      rowsEl.innerHTML = "";
-      return;
-    }
-
-    const rows = data || [];
-    if (rows.length === 0) {
-      rowsEl.innerHTML = "";
-      emptyEl.style.display = "block";
-      return;
-    }
-
-    rowsEl.innerHTML = rows.map(r => {
-      const firedTime = r.fired_at ? new Date(r.fired_at).toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/New_York' }) : "—";
-      return `
-      <tr class="mover-row" data-news='${JSON.stringify(r.news ?? [])}'>
-        <td class="symbol">${r.symbol}</td>
-        <td class="name">${r.name ?? ""}</td>
-        <td class="num pct ${r.real_move >= 0 ? "pos" : "neg"}">${fmtPct(r.real_move)}</td>
-        <td class="num pct ${r.pct_change >= 0 ? "pos" : "neg"}">${fmtPct(r.pct_change)}</td>
-        <td class="num">${r.price ?? "—"}</td>
-        <td class="num">${fmtMarketCap(r.market_cap)}</td>
-        <td class="time-cell">${firedTime} ET</td>
-      </tr>`;
-    }).join('');
-
-    wireExpandableRows(rowsEl, 7);
+async function refreshPeers() {
+  const rows = await sb("peer_moves?order=ticker.asc&select=*");
+  const container = document.getElementById("peer-monitor");
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<div class="empty-state">No peer data yet.</div>';
+    return;
   }
+  container.innerHTML = rows.map((r) => `
+    <div class="peer-row">
+      <span class="peer-ticker">${r.ticker}</span>
+      <span class="${r.pct_change >= 0 ? "up" : "down"}">${fmtPct(r.pct_change)}</span>
+    </div>
+  `).join("");
+}
 
-  /* ================= Init ================= */
-  (async function init() {
-    await loadMovers(currentList);
-    await loadVerifiedMovers();
-    setInterval(loadVerifiedMovers, 15000);
-    await loadAlertLog();
-    setInterval(loadAlertLog, 15000);
-    setInterval(() => loadMovers(currentList), 30000);
-    renderClock();
-    setInterval(renderClock, 1000);
-  })();
-})();
+// ------------------------------------------------------------------
+// Orchestration
+// ------------------------------------------------------------------
+
+async function refreshAll() {
+  const tasks = [refreshLiveState(), refreshChart(), refreshNews(), refreshLevels(), refreshVolumeProfile(), refreshPeers()];
+  const results = await Promise.allSettled(tasks);
+  results.forEach((r) => { if (r.status === "rejected") console.error(r.reason); });
+}
+
+if (SUPABASE_URL === "YOUR_SUPABASE_URL") {
+  document.getElementById("market-status").textContent = "NOT CONFIGURED";
+  document.querySelectorAll(".empty-state").forEach((el) => {
+    el.textContent = "Set SUPABASE_URL and SUPABASE_ANON_KEY in index.html to connect.";
+  });
+} else {
+  refreshAll();
+  setInterval(refreshAll, REFRESH_INTERVAL_MS);
+  window.addEventListener("resize", refreshChart);
+}
 </script>
+
 </body>
 </html>
