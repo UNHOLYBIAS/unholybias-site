@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Print Watch</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #0f1520;
+    --line: #1c2433;
+    --text: #dbe2ef;
+    --dim: #62708a;
+    --bull: #34d399;
+    --bull-dim: #1a4d3c;
+    --bear: #f2597f;
+    --bear-dim: #4d1f2e;
+    --tier1: #f0b429;
+    --tier2: #4f9ee8;
+    --tier3: #6b7a94;
+    --mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--line);
+    flex-wrap: wrap; gap: 10px;
+  }
+  header h1 {
+    font-family: var(--mono); font-size: 19px; font-weight: 600;
+    letter-spacing: 0.2px; margin: 0; color: var(--text);
+  }
+  header .status {
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bull); flex-shrink: 0; }
+  .dot.stale { background: var(--tier1); }
+  .dot.down { background: var(--bear); }
+
+  .feed {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 14px 16px; margin-bottom: 24px;
+  }
+  .feed h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--dim); margin: 0 0 10px; font-weight: 600;
+  }
+  .feed-empty { font-family: var(--mono); font-size: 13px; color: var(--dim); padding: 6px 0; }
+  .feed-item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 0;
+    border-top: 1px solid var(--line); font-family: var(--mono); font-size: 13px;
+  }
+  .feed-item:first-child { border-top: none; }
+  .feed-item .sym { font-weight: 700; width: 58px; flex-shrink: 0; }
+  .feed-item .pct { width: 68px; flex-shrink: 0; text-align: right; }
+  .feed-item .meta { color: var(--dim); font-size: 12px; }
+
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
+
+  .col-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .col-head h2 {
+    font-size: 14px; font-weight: 700; margin: 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .col-head .count { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .bull-title { color: var(--bull); }
+  .bear-title { color: var(--bear); }
+
+  .tier-block { margin-bottom: 16px; }
+  .tier-label {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--dim); padding: 6px 0 6px 2px;
+  }
+  .tier-label .swatch { display: inline-block; width: 6px; height: 6px; border-radius: 1px; margin-right: 6px; }
+
+  .row {
+    display: grid; grid-template-columns: 66px 1fr 52px; align-items: center;
+    gap: 10px; padding: 8px 10px; border-radius: 5px;
+    background: var(--panel); border: 1px solid var(--line);
+    margin-bottom: 5px;
+  }
+  .row .sym { font-family: var(--mono); font-weight: 700; font-size: 13.5px; }
+  .row .bar-track {
+    height: 6px; background: #161d29; border-radius: 3px; overflow: hidden;
+  }
+  .row .bar-fill { height: 100%; border-radius: 3px; }
+  .row .pct { font-family: var(--mono); font-size: 12.5px; text-align: right; color: var(--text); }
+  .row.alerted { outline: 1px solid; }
+  .row.alerted.up { outline-color: var(--bull); }
+  .row.alerted.down { outline-color: var(--bear); }
+  .row .badge {
+    font-family: var(--mono); font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
+    margin-left: 6px; background: var(--bull-dim); color: var(--bull);
+  }
+  .row .badge.down { background: var(--bear-dim); color: var(--bear); }
+
+  footer {
+    margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11.5px; color: var(--dim); line-height: 1.6;
+  }
+  footer a { color: var(--dim); }
+
+  .config-warning {
+    background: var(--bear-dim); border: 1px solid var(--bear);
+    color: var(--text); padding: 14px 16px; border-radius: 6px;
+    font-family: var(--mono); font-size: 13px; margin-bottom: 20px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>OPEN PRINT WATCH</h1>
+    <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">connecting…</span></div>
+  </header>
+
+  <div id="config-warning" class="config-warning" style="display:none;">
+    Dashboard isn't configured yet. Open this file and set SUPABASE_URL and
+    SUPABASE_ANON_KEY near the top of the &lt;script&gt; block (Settings → API
+    in your Supabase project — use the public "anon" key, never the
+    service_role key). This page never sends alerts itself — it only reads
+    status; the Edge Function + cron do the actual watching whether or not
+    this page is open.
+  </div>
+
+  <div class="feed">
+    <h2>Today's Alerts</h2>
+    <div id="feed-body"><div class="feed-empty">No alerts fired yet today.</div></div>
+  </div>
+
+  <div class="columns">
+    <div>
+      <div class="col-head">
+        <h2 class="bull-title">▲ BULLISH</h2>
+        <span class="count" id="bull-count"></span>
+      </div>
+      <div id="bull-list"></div>
+    </div>
+    <div>
+      <div class="col-head">
+        <h2 class="bear-title">▼ BEARISH</h2>
+        <span class="count" id="bear-count"></span>
+      </div>
+      <div id="bear-list"></div>
+    </div>
+  </div>
+
+  <footer>
+    Threshold: open ±1.0% vs prior close &nbsp;·&nbsp; Tiers: 🏆 ≥70% &nbsp; 🔷 60–69% &nbsp; ⚪ 50–59%<br/>
+    This page is a viewer only — closing it does not pause or affect alerting.
+    The watch runs on Supabase Cron + Edge Functions independently.<br/>
+    Auto-refreshes every 20s.
+  </footer>
+
+</div>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  // ---- CONFIGURE THESE TWO VALUES ----
+  const SUPABASE_URL = "https://qoatvewejohqxxxnwjfn.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_Wx7PFBUW9-WOAHqwcE9lZw_JANlKPSj";
+  // -------------------------------------
+
+  const TIER_META = {
+    1: { label: "TOP · ≥70%", color: "#f0b429" },
+    2: { label: "MID · 60–69%", color: "#4f9ee8" },
+    3: { label: "BASE · 50–59%", color: "#6b7a94" },
+  };
+
+  const statusDot = document.getElementById("status-dot");
+  const statusText = document.getElementById("status-text");
+  const configWarning = document.getElementById("config-warning");
+
+  if (SUPABASE_URL.includes("YOUR_PROJECT_REF") || SUPABASE_ANON_KEY.includes("YOUR_ANON")) {
+    configWarning.style.display = "block";
+    statusDot.classList.add("stale");
+    statusText.textContent = "not configured";
+  } else {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    boot(supabase);
+  }
+
+  function todayStr() {
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
+    return fmt.format(new Date()); // YYYY-MM-DD
+  }
+
+  function renderColumn(rows, direction, alertedMap, listElId, countElId) {
+    const el = document.getElementById(listElId);
+    const filtered = rows.filter(r => r.direction === direction);
+    document.getElementById(countElId).textContent = `${filtered.length} tickers`;
+    const byTier = { 1: [], 2: [], 3: [] };
+    filtered.forEach(r => byTier[r.tier].push(r));
+
+    el.innerHTML = "";
+    [1, 2, 3].forEach(tier => {
+      const group = byTier[tier];
+      if (!group.length) return;
+      const block = document.createElement("div");
+      block.className = "tier-block";
+      const meta = TIER_META[tier];
+      block.innerHTML = `<div class="tier-label"><span class="swatch" style="background:${meta.color}"></span>${meta.label}</div>`;
+      group.sort((a, b) => b.probability - a.probability).forEach(r => {
+        const key = `${r.symbol}:${r.direction}`;
+        const isAlerted = alertedMap.has(key);
+        const row = document.createElement("div");
+        row.className = `row${isAlerted ? " alerted " + direction : ""}`;
+        const barColor = direction === "up" ? "var(--bull)" : "var(--bear)";
+        row.innerHTML = `
+          <div class="sym">${r.symbol}${isAlerted ? `<span class="badge ${direction}">FIRED</span>` : ""}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${r.probability}%;background:${barColor}"></div></div>
+          <div class="pct">${r.probability.toFixed(1)}%</div>
+        `;
+        block.appendChild(row);
+      });
+      el.appendChild(block);
+    });
+  }
+
+  function renderFeed(alerts) {
+    const body = document.getElementById("feed-body");
+    if (!alerts.length) {
+      body.innerHTML = '<div class="feed-empty">No alerts fired yet today.</div>';
+      return;
+    }
+    body.innerHTML = "";
+    alerts
+      .slice()
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .forEach(a => {
+        const item = document.createElement("div");
+        item.className = "feed-item";
+        const color = a.direction === "up" ? "var(--bull)" : "var(--bear)";
+        const arrow = a.direction === "up" ? "▲" : "▼";
+        const meta = TIER_META[a.tier];
+        item.innerHTML = `
+          <span class="sym" style="color:${color}">${a.symbol}</span>
+          <span class="pct" style="color:${color}">${arrow} ${a.open_pct >= 0 ? "+" : ""}${Number(a.open_pct).toFixed(2)}%</span>
+          <span class="meta">${meta.label} · edge ${Number(a.probability).toFixed(1)}% · ${new Date(a.created_at).toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET</span>
+        `;
+        body.appendChild(item);
+      });
+  }
+
+  async function refresh(supabase) {
+    const today = todayStr();
+    const [{ data: watch, error: wErr }, { data: alerts, error: aErr }] = await Promise.all([
+      supabase.from("watchlist").select("symbol, direction, probability, tier"),
+      supabase.from("open_alerts").select("*").eq("alert_date", today),
+    ]);
+
+    if (wErr || aErr) {
+      statusDot.classList.add("down");
+      statusText.textContent = "connection error";
+      return;
+    }
+
+    statusDot.classList.remove("stale", "down");
+    statusText.textContent = `live · updated ${new Date().toLocaleTimeString()}`;
+
+    const alertedMap = new Map((alerts || []).map(a => [`${a.symbol}:${a.direction}`, a]));
+    renderColumn(watch || [], "up", alertedMap, "bull-list", "bull-count");
+    renderColumn(watch || [], "down", alertedMap, "bear-list", "bear-count");
+    renderFeed(alerts || []);
+  }
+
+  function boot(supabase) {
+    refresh(supabase);
+    setInterval(() => refresh(supabase), 20000);
+  }
+</script>
+</body>
+</html>
