@@ -1,540 +1,289 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TSLA — Terminal</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Print Watch</title>
 <style>
   :root {
-    --bg: #14161A;
-    --panel: #1C1F26;
-    --line: #2A2E37;
-    --text: #E8E6DF;
-    --text-dim: #8A8D96;
-    --up: #4FA97C;
-    --down: #D1533D;
-    --amber: #D9A441;
+    --bg: #0a0e14;
+    --panel: #0f1520;
+    --line: #1c2433;
+    --text: #dbe2ef;
+    --dim: #62708a;
+    --bull: #34d399;
+    --bull-dim: #1a4d3c;
+    --bear: #f2597f;
+    --bear-dim: #4d1f2e;
+    --tier1: #f0b429;
+    --tier2: #4f9ee8;
+    --tier3: #6b7a94;
+    --mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", sans-serif;
   }
-
   * { box-sizing: border-box; }
-
-  body {
-    margin: 0;
+  html, body {
+    margin: 0; padding: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    min-height: 100vh;
+    font-family: var(--sans);
   }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
 
-  .mono { font-family: 'IBM Plex Mono', monospace; }
-
-  header.masthead {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding: 18px 24px;
-    border-bottom: 1px solid var(--line);
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--line);
+    flex-wrap: wrap; gap: 10px;
   }
-
-  header.masthead .ticker-name {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+  header h1 {
+    font-family: var(--mono); font-size: 19px; font-weight: 600;
+    letter-spacing: 0.2px; margin: 0; color: var(--text);
   }
-
-  header.masthead .status {
-    font-size: 13px;
-    color: var(--text-dim);
+  header .status {
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    display: flex; align-items: center; gap: 7px;
   }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bull); flex-shrink: 0; }
+  .dot.stale { background: var(--tier1); }
+  .dot.down { background: var(--bear); }
 
-  .status.live::before {
-    content: "";
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--up);
-    margin-right: 6px;
-    vertical-align: middle;
+  .feed {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 14px 16px; margin-bottom: 24px;
   }
-
-  .price-row {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
-    padding: 10px 24px 18px;
-    border-bottom: 1px solid var(--line);
-    flex-wrap: wrap;
+  .feed h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--dim); margin: 0 0 10px; font-weight: 600;
   }
-
-  .price-row .last-price {
-    font-size: 40px;
-    font-weight: 500;
+  .feed-empty { font-family: var(--mono); font-size: 13px; color: var(--dim); padding: 6px 0; }
+  .feed-item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 0;
+    border-top: 1px solid var(--line); font-family: var(--mono); font-size: 13px;
   }
+  .feed-item:first-child { border-top: none; }
+  .feed-item .sym { font-weight: 700; width: 58px; flex-shrink: 0; }
+  .feed-item .pct { width: 68px; flex-shrink: 0; text-align: right; }
+  .feed-item .meta { color: var(--dim); font-size: 12px; }
 
-  .price-row .change {
-    font-size: 18px;
-  }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
 
-  .up { color: var(--up); }
-  .down { color: var(--down); }
-
-  .stat-strip {
-    display: flex;
-    gap: 28px;
-    padding: 12px 24px;
-    border-bottom: 1px solid var(--line);
-    flex-wrap: wrap;
-    font-size: 13px;
-  }
-
-  .stat-strip .stat-label {
-    color: var(--text-dim);
-    margin-right: 6px;
-  }
-
-  main {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 0;
-  }
-
-  @media (max-width: 900px) {
-    main { grid-template-columns: 1fr; }
-  }
-
-  .chart-panel {
-    padding: 20px 24px;
-    border-right: 1px solid var(--line);
-  }
-
-  .panel-title {
-    font-size: 12px;
-    color: var(--text-dim);
-    letter-spacing: 0.04em;
+  .col-head {
+    display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 12px;
   }
-
-  #chart-canvas {
-    width: 100%;
-    height: 360px;
-    display: block;
+  .col-head h2 {
+    font-size: 14px; font-weight: 700; margin: 0;
+    display: flex; align-items: center; gap: 8px;
   }
+  .col-head .count { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .bull-title { color: var(--bull); }
+  .bear-title { color: var(--bear); }
 
-  .levels-strip {
-    display: flex;
-    gap: 22px;
-    flex-wrap: wrap;
-    font-size: 13px;
-    padding-bottom: 14px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid var(--line);
+  .tier-block { margin-bottom: 16px; }
+  .tier-label {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--dim); padding: 6px 0 6px 2px;
   }
+  .tier-label .swatch { display: inline-block; width: 6px; height: 6px; border-radius: 1px; margin-right: 6px; }
 
-  .levels-strip .level-label {
-    color: var(--text-dim);
-    margin-right: 5px;
+  .row {
+    display: grid; grid-template-columns: 66px 1fr 52px; align-items: center;
+    gap: 10px; padding: 8px 10px; border-radius: 5px;
+    background: var(--panel); border: 1px solid var(--line);
+    margin-bottom: 5px;
   }
-
-  .levels-strip .poc-value {
-    color: var(--amber);
+  .row .sym { font-family: var(--mono); font-weight: 700; font-size: 13.5px; }
+  .row .bar-track {
+    height: 6px; background: #161d29; border-radius: 3px; overflow: hidden;
   }
-
-  .tv-widget {
-    width: 100%;
-    height: 420px;
+  .row .bar-fill { height: 100%; border-radius: 3px; }
+  .row .pct { font-family: var(--mono); font-size: 12.5px; text-align: right; color: var(--text); }
+  .row.alerted { outline: 1px solid; }
+  .row.alerted.up { outline-color: var(--bull); }
+  .row.alerted.down { outline-color: var(--bear); }
+  .row .badge {
+    font-family: var(--mono); font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
+    margin-left: 6px; background: var(--bull-dim); color: var(--bull);
   }
-
-  .news-panel {
-    padding: 20px 20px;
-    max-height: 720px;
-    overflow-y: auto;
-  }
-
-  .news-item {
-    padding: 12px 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .news-item:last-child { border-bottom: none; }
-
-  .news-item .headline {
-    font-size: 14px;
-    line-height: 1.4;
-    margin-bottom: 6px;
-  }
-
-  .news-item .meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-
-  .news-item .tags {
-    margin-top: 6px;
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .tag {
-    font-size: 10px;
-    padding: 2px 7px;
-    border: 1px solid var(--line);
-    border-radius: 3px;
-    color: var(--amber);
-  }
-
-  .lower-strip {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    border-top: 1px solid var(--line);
-  }
-
-  @media (max-width: 900px) {
-    .lower-strip { grid-template-columns: 1fr; }
-  }
-
-  .lower-panel {
-    padding: 18px 24px;
-    border-right: 1px solid var(--line);
-  }
-
-  .lower-panel:last-child { border-right: none; }
-
-  .level-row, .peer-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    padding: 5px 0;
-  }
-
-  .level-row .level-label, .peer-row .peer-ticker {
-    color: var(--text-dim);
-  }
-
-  .empty-state {
-    color: var(--text-dim);
-    font-size: 13px;
-    padding: 12px 0;
-  }
+  .row .badge.down { background: var(--bear-dim); color: var(--bear); }
 
   footer {
-    padding: 14px 24px;
-    font-size: 11px;
-    color: var(--text-dim);
-    border-top: 1px solid var(--line);
+    margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11.5px; color: var(--dim); line-height: 1.6;
+  }
+  footer a { color: var(--dim); }
+
+  .config-warning {
+    background: var(--bear-dim); border: 1px solid var(--bear);
+    color: var(--text); padding: 14px 16px; border-radius: 6px;
+    font-family: var(--mono); font-size: 13px; margin-bottom: 20px; line-height: 1.6;
   }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<header class="masthead">
-  <div class="ticker-name">TSLA</div>
-  <div class="status live mono" id="market-status">connecting…</div>
-</header>
+  <header>
+    <h1>OPEN PRINT WATCH</h1>
+    <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">connecting…</span></div>
+  </header>
 
-<div class="price-row mono">
-  <div class="last-price" id="last-price">—</div>
-  <div class="change" id="price-change">—</div>
-</div>
-
-<div class="stat-strip mono">
-  <div><span class="stat-label">Day H/L</span><span id="stat-day-hl">—</span></div>
-  <div><span class="stat-label">PM H/L</span><span id="stat-pm-hl">—</span></div>
-  <div><span class="stat-label">Prev Close</span><span id="stat-prev-close">—</span></div>
-  <div><span class="stat-label">Volume</span><span id="stat-volume">—</span></div>
-  <div><span class="stat-label">RVOL</span><span id="stat-rvol">—</span></div>
-  <div><span class="stat-label">VWAP</span><span id="stat-vwap">—</span></div>
-</div>
-
-<main>
-  <div class="chart-panel">
-    <div class="panel-title">LEVELS</div>
-    <div id="chart-levels-strip" class="mono levels-strip">
-      <span class="empty-state">Loading levels…</span>
-    </div>
-    <div id="tradingview_chart" class="tv-widget"></div>
+  <div id="config-warning" class="config-warning" style="display:none;">
+    Dashboard isn't configured yet. Open this file and set SUPABASE_URL and
+    SUPABASE_ANON_KEY near the top of the &lt;script&gt; block (Settings → API
+    in your Supabase project — use the public "anon" key, never the
+    service_role key). This page never sends alerts itself — it only reads
+    status; the Edge Function + cron do the actual watching whether or not
+    this page is open.
   </div>
 
-  <div class="news-panel" id="news-panel">
-    <div class="panel-title">NEWS</div>
-    <div class="empty-state">Loading news feed…</div>
+  <div class="feed">
+    <h2>Today's Alerts</h2>
+    <div id="feed-body"><div class="feed-empty">No alerts fired yet today.</div></div>
   </div>
-</main>
 
-<div class="lower-strip">
-  <div class="lower-panel">
-    <div class="panel-title">SUPPORT / RESISTANCE</div>
-    <div id="sr-levels" class="mono"><div class="empty-state">Loading levels…</div></div>
-  </div>
-  <div class="lower-panel">
-    <div class="panel-title">VOLUME PROFILE</div>
-    <div id="volume-profile" class="mono"><div class="empty-state">Loading profile…</div></div>
-  </div>
-  <div class="lower-panel">
-    <div class="panel-title">PEER MONITOR</div>
-    <div id="peer-monitor" class="mono"><div class="empty-state">Loading peers…</div></div>
-  </div>
-</div>
-
-<footer class="mono">
-  TSLA terminal — data via Finnhub, Massive, Alpaca (free tiers) — RTH-only live chart, full-picture history via daily backfill.
-</footer>
-
-<script>
-// ============================================================
-// Configuration — fill these in with your Supabase project details.
-// The anon key is safe to expose client-side; it only has the
-// read-only SELECT policies defined in supabase-schema.sql.
-// ============================================================
-const SUPABASE_URL = "https://ktffoamoqldvsxvlahnd.supabase.co"; // e.g. https://xxxx.supabase.co
-const SUPABASE_ANON_KEY = "sb_publishable_P-Lxn5HGmIcgULsv4yxEFg_C47UFsHP";
-
-const REFRESH_INTERVAL_MS = 15000; // poll Supabase every 15s while the tab is open
-
-async function sb(path) {
-  // New-format publishable keys (sb_publishable_...) must travel only on the
-  // apikey header — sending them as a Bearer token too can cause a 401.
-  // Legacy anon (JWT) keys are fine either way, so this only sends
-  // Authorization when the key looks like a legacy JWT.
-  const isLegacyJwt = SUPABASE_ANON_KEY.split(".").length === 3;
-  const headers = { apikey: SUPABASE_ANON_KEY };
-  if (isLegacyJwt) headers.Authorization = `Bearer ${SUPABASE_ANON_KEY}`;
-
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers });
-  if (!res.ok) throw new Error(`Supabase read failed: ${path} (${res.status})`);
-  return res.json();
-}
-
-function fmtPrice(n) {
-  return n === null || n === undefined ? "—" : Number(n).toFixed(2);
-}
-
-function fmtPct(n) {
-  if (n === null || n === undefined) return "—";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${Number(n).toFixed(2)}%`;
-}
-
-function fmtVolume(n) {
-  if (!n) return "—";
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return String(n);
-}
-
-function timeAgo(iso) {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-// ------------------------------------------------------------------
-// Header + stat strip
-// ------------------------------------------------------------------
-
-async function refreshLiveState() {
-  const rows = await sb("tsla_live_state?id=eq.1&select=*");
-  const state = rows[0];
-  if (!state) return;
-
-  document.getElementById("market-status").textContent = (state.market_status || "—").toUpperCase();
-  document.getElementById("last-price").textContent = "$" + fmtPrice(state.last_price);
-
-  const change = state.last_price && state.prev_close
-    ? state.last_price - state.prev_close
-    : null;
-  const pctChange = change !== null ? (change / state.prev_close) * 100 : null;
-  const changeEl = document.getElementById("price-change");
-  if (change !== null) {
-    changeEl.textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${fmtPct(pctChange)})`;
-    changeEl.className = "change mono " + (change >= 0 ? "up" : "down");
-  }
-
-  document.getElementById("stat-day-hl").textContent =
-    `${fmtPrice(state.day_low)} / ${fmtPrice(state.day_high)}`;
-  document.getElementById("stat-pm-hl").textContent =
-    `${fmtPrice(state.premarket_low)} / ${fmtPrice(state.premarket_high)}`;
-  document.getElementById("stat-prev-close").textContent = fmtPrice(state.prev_close);
-  document.getElementById("stat-volume").textContent = fmtVolume(state.day_volume);
-  document.getElementById("stat-rvol").textContent = state.rvol ? state.rvol.toFixed(2) + "x" : "—";
-  document.getElementById("stat-vwap").textContent = fmtPrice(state.vwap);
-}
-
-// ------------------------------------------------------------------
-// Chart — TradingView embed (their own live data, not through Finnhub)
-// ------------------------------------------------------------------
-
-function initTradingViewWidget() {
-  const script = document.createElement("script");
-  script.src = "https://s3.tradingview.com/tv.js";
-  script.onload = () => {
-    // eslint-disable-next-line no-undef
-    new TradingView.widget({
-      autosize: true,
-      symbol: "NASDAQ:TSLA",
-      interval: "1",
-      timezone: "America/New_York",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      toolbar_bg: "#1C1F26",
-      backgroundColor: "#14161A",
-      gridColor: "rgba(232,230,223,0.06)",
-      enable_publishing: false,
-      hide_top_toolbar: false,
-      hide_legend: false,
-      save_image: false,
-      container_id: "tradingview_chart",
-    });
-  };
-  document.head.appendChild(script);
-}
-
-// ------------------------------------------------------------------
-// Compact S/R + POC strip shown directly above the chart
-// ------------------------------------------------------------------
-
-async function refreshChartLevelsStrip() {
-  const strip = document.getElementById("chart-levels-strip");
-  const [levelRows, profileRows] = await Promise.all([
-    sb("daily_levels?order=trade_date.desc&limit=1&select=*"),
-    sb("volume_profile_composite?window_label=eq.5day&select=*"),
-  ]);
-  const level = levelRows[0];
-  const profile = profileRows[0];
-
-  if (!level && !profile) {
-    strip.innerHTML = '<span class="empty-state">No levels yet.</span>';
-    return;
-  }
-
-  const parts = [];
-  if (level) {
-    parts.push(`<span><span class="level-label">Prior H/L</span>${fmtPrice(level.low)} / ${fmtPrice(level.high)}</span>`);
-    parts.push(`<span><span class="level-label">Gap</span>${fmtPrice(level.gap_open)}</span>`);
-    parts.push(`<span><span class="level-label">POC (1d)</span><span class="poc-value">${fmtPrice(level.poc)}</span></span>`);
-  }
-  if (profile) {
-    parts.push(`<span><span class="level-label">POC (5d)</span><span class="poc-value">${fmtPrice(profile.poc)}</span></span>`);
-    parts.push(`<span><span class="level-label">VAH/VAL (5d)</span>${fmtPrice(profile.vah)} / ${fmtPrice(profile.val)}</span>`);
-  }
-  strip.innerHTML = parts.join("");
-}
-
-// ------------------------------------------------------------------
-// News feed
-// ------------------------------------------------------------------
-
-async function refreshNews() {
-  const items = await sb("tsla_news?order=published_at.desc&limit=25&select=*");
-  const panel = document.getElementById("news-panel");
-  panel.innerHTML = '<div class="panel-title">NEWS</div>';
-
-  if (!items || items.length === 0) {
-    panel.innerHTML += '<div class="empty-state">No news captured yet.</div>';
-    return;
-  }
-
-  for (const item of items) {
-    const div = document.createElement("div");
-    div.className = "news-item";
-    const tagsHtml = (item.tags || [])
-      .map((t) => `<span class="tag">${t}</span>`)
-      .join("");
-    div.innerHTML = `
-      <div class="headline">${item.link
-        ? `<a href="${item.link}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${item.headline}</a>`
-        : item.headline}</div>
-      <div class="meta mono">
-        <span>${item.source} · ${timeAgo(item.published_at)}</span>
-        <span>score ${item.catalyst_score ?? "—"}</span>
+  <div class="columns">
+    <div>
+      <div class="col-head">
+        <h2 class="bull-title">▲ BULLISH</h2>
+        <span class="count" id="bull-count"></span>
       </div>
-      <div class="tags">${tagsHtml}</div>
-    `;
-    panel.appendChild(div);
-  }
-}
-
-// ------------------------------------------------------------------
-// S/R levels, volume profile, peer monitor
-// ------------------------------------------------------------------
-
-async function refreshLevels() {
-  const rows = await sb("daily_levels?order=trade_date.desc&limit=1&select=*");
-  const level = rows[0];
-  const container = document.getElementById("sr-levels");
-  if (!level) {
-    container.innerHTML = '<div class="empty-state">No daily levels yet.</div>';
-    return;
-  }
-  container.innerHTML = `
-    <div class="level-row"><span class="level-label">Prior High</span><span>${fmtPrice(level.high)}</span></div>
-    <div class="level-row"><span class="level-label">Prior Low</span><span>${fmtPrice(level.low)}</span></div>
-    <div class="level-row"><span class="level-label">Prior Open</span><span>${fmtPrice(level.open)}</span></div>
-    <div class="level-row"><span class="level-label">Prior Close</span><span>${fmtPrice(level.close)}</span></div>
-    <div class="level-row"><span class="level-label">Gap</span><span>${fmtPrice(level.gap_open)}</span></div>
-  `;
-}
-
-async function refreshVolumeProfile() {
-  const rows = await sb("volume_profile_composite?select=*");
-  const container = document.getElementById("volume-profile");
-  if (!rows || rows.length === 0) {
-    container.innerHTML = '<div class="empty-state">No volume profile yet.</div>';
-    return;
-  }
-  container.innerHTML = rows.map((r) => `
-    <div class="level-row"><span class="level-label">${r.window_label} POC</span><span>${fmtPrice(r.poc)}</span></div>
-    <div class="level-row"><span class="level-label">${r.window_label} VAH</span><span>${fmtPrice(r.vah)}</span></div>
-    <div class="level-row"><span class="level-label">${r.window_label} VAL</span><span>${fmtPrice(r.val)}</span></div>
-  `).join("");
-}
-
-async function refreshPeers() {
-  const rows = await sb("peer_moves?order=ticker.asc&select=*");
-  const container = document.getElementById("peer-monitor");
-  if (!rows || rows.length === 0) {
-    container.innerHTML = '<div class="empty-state">No peer data yet.</div>';
-    return;
-  }
-  container.innerHTML = rows.map((r) => `
-    <div class="peer-row">
-      <span class="peer-ticker">${r.ticker}</span>
-      <span class="${r.pct_change >= 0 ? "up" : "down"}">${fmtPct(r.pct_change)}</span>
+      <div id="bull-list"></div>
     </div>
-  `).join("");
-}
+    <div>
+      <div class="col-head">
+        <h2 class="bear-title">▼ BEARISH</h2>
+        <span class="count" id="bear-count"></span>
+      </div>
+      <div id="bear-list"></div>
+    </div>
+  </div>
 
-// ------------------------------------------------------------------
-// Orchestration
-// ------------------------------------------------------------------
+  <footer>
+    Threshold: open ±1.0% vs prior close &nbsp;·&nbsp; Tiers: 🏆 ≥70% &nbsp; 🔷 60–69% &nbsp; ⚪ 50–59%<br/>
+    This page is a viewer only — closing it does not pause or affect alerting.
+    The watch runs on Supabase Cron + Edge Functions independently.<br/>
+    Auto-refreshes every 20s.
+  </footer>
 
-async function refreshAll() {
-  const tasks = [refreshLiveState(), refreshChartLevelsStrip(), refreshNews(), refreshLevels(), refreshVolumeProfile(), refreshPeers()];
-  const results = await Promise.allSettled(tasks);
-  results.forEach((r) => { if (r.status === "rejected") console.error(r.reason); });
-}
+</div>
 
-if (SUPABASE_URL === "YOUR_SUPABASE_URL") {
-  document.getElementById("market-status").textContent = "NOT CONFIGURED";
-  document.querySelectorAll(".empty-state").forEach((el) => {
-    el.textContent = "Set SUPABASE_URL and SUPABASE_ANON_KEY in index.html to connect.";
-  });
-} else {
-  initTradingViewWidget(); // one-time — TradingView streams its own live updates
-  refreshAll();
-  setInterval(refreshAll, REFRESH_INTERVAL_MS);
-}
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  // ---- CONFIGURE THESE TWO VALUES ----
+  const SUPABASE_URL = "https://qoatvewejohqxxxnwjfn.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_Wx7PFBUW9-WOAHqwcE9lZw_JANlKPSj";
+  // -------------------------------------
+
+  const TIER_META = {
+    1: { label: "TOP · ≥70%", color: "#f0b429" },
+    2: { label: "MID · 60–69%", color: "#4f9ee8" },
+    3: { label: "BASE · 50–59%", color: "#6b7a94" },
+  };
+
+  const statusDot = document.getElementById("status-dot");
+  const statusText = document.getElementById("status-text");
+  const configWarning = document.getElementById("config-warning");
+
+  if (SUPABASE_URL.includes("YOUR_PROJECT_REF") || SUPABASE_ANON_KEY.includes("YOUR_ANON")) {
+    configWarning.style.display = "block";
+    statusDot.classList.add("stale");
+    statusText.textContent = "not configured";
+  } else {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    boot(supabase);
+  }
+
+  function todayStr() {
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
+    return fmt.format(new Date()); // YYYY-MM-DD
+  }
+
+  function renderColumn(rows, direction, alertedMap, listElId, countElId) {
+    const el = document.getElementById(listElId);
+    const filtered = rows.filter(r => r.direction === direction);
+    document.getElementById(countElId).textContent = `${filtered.length} tickers`;
+    const byTier = { 1: [], 2: [], 3: [] };
+    filtered.forEach(r => byTier[r.tier].push(r));
+
+    el.innerHTML = "";
+    [1, 2, 3].forEach(tier => {
+      const group = byTier[tier];
+      if (!group.length) return;
+      const block = document.createElement("div");
+      block.className = "tier-block";
+      const meta = TIER_META[tier];
+      block.innerHTML = `<div class="tier-label"><span class="swatch" style="background:${meta.color}"></span>${meta.label}</div>`;
+      group.sort((a, b) => b.probability - a.probability).forEach(r => {
+        const key = `${r.symbol}:${r.direction}`;
+        const isAlerted = alertedMap.has(key);
+        const row = document.createElement("div");
+        row.className = `row${isAlerted ? " alerted " + direction : ""}`;
+        const barColor = direction === "up" ? "var(--bull)" : "var(--bear)";
+        row.innerHTML = `
+          <div class="sym">${r.symbol}${isAlerted ? `<span class="badge ${direction}">FIRED</span>` : ""}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${r.probability}%;background:${barColor}"></div></div>
+          <div class="pct">${r.probability.toFixed(1)}%</div>
+        `;
+        block.appendChild(row);
+      });
+      el.appendChild(block);
+    });
+  }
+
+  function renderFeed(alerts) {
+    const body = document.getElementById("feed-body");
+    if (!alerts.length) {
+      body.innerHTML = '<div class="feed-empty">No alerts fired yet today.</div>';
+      return;
+    }
+    body.innerHTML = "";
+    alerts
+      .slice()
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .forEach(a => {
+        const item = document.createElement("div");
+        item.className = "feed-item";
+        const color = a.direction === "up" ? "var(--bull)" : "var(--bear)";
+        const arrow = a.direction === "up" ? "▲" : "▼";
+        const meta = TIER_META[a.tier];
+        item.innerHTML = `
+          <span class="sym" style="color:${color}">${a.symbol}</span>
+          <span class="pct" style="color:${color}">${arrow} ${a.open_pct >= 0 ? "+" : ""}${Number(a.open_pct).toFixed(2)}%</span>
+          <span class="meta">${meta.label} · edge ${Number(a.probability).toFixed(1)}% · ${new Date(a.created_at).toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET</span>
+        `;
+        body.appendChild(item);
+      });
+  }
+
+  async function refresh(supabase) {
+    const today = todayStr();
+    const [{ data: watch, error: wErr }, { data: alerts, error: aErr }] = await Promise.all([
+      supabase.from("watchlist").select("symbol, direction, probability, tier"),
+      supabase.from("open_alerts").select("*").eq("alert_date", today),
+    ]);
+
+    if (wErr || aErr) {
+      statusDot.classList.add("down");
+      statusText.textContent = "connection error";
+      return;
+    }
+
+    statusDot.classList.remove("stale", "down");
+    statusText.textContent = `live · updated ${new Date().toLocaleTimeString()}`;
+
+    const alertedMap = new Map((alerts || []).map(a => [`${a.symbol}:${a.direction}`, a]));
+    renderColumn(watch || [], "up", alertedMap, "bull-list", "bull-count");
+    renderColumn(watch || [], "down", alertedMap, "bear-list", "bear-count");
+    renderFeed(alerts || []);
+  }
+
+  function boot(supabase) {
+    refresh(supabase);
+    setInterval(() => refresh(supabase), 20000);
+  }
 </script>
-
 </body>
 </html>
