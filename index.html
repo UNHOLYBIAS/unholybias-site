@@ -3,287 +3,316 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Open Print Watch</title>
+<title>Halt Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root {
-    --bg: #0a0e14;
-    --panel: #0f1520;
-    --line: #1c2433;
-    --text: #dbe2ef;
-    --dim: #62708a;
-    --bull: #34d399;
-    --bull-dim: #1a4d3c;
-    --bear: #f2597f;
-    --bear-dim: #4d1f2e;
-    --tier1: #f0b429;
-    --tier2: #4f9ee8;
-    --tier3: #6b7a94;
-    --mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
-    --sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+  :root{
+    --bg:#0a0d12; --surface:#11151c; --surface-raised:#151a22; --border:#1f2530;
+    --text:#e7ebf1; --dim:#808a9c; --dim-2:#5b6474;
+    --amber:#f0a93d; --teal:#38c6b0; --green:#37d67a; --red:#ff5c6c;
+    --sans:'Sora',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,Menlo,monospace;
   }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-  }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{padding:28px 28px 48px;}
 
-  header {
-    display: flex; align-items: baseline; justify-content: space-between;
-    padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--line);
-    flex-wrap: wrap; gap: 10px;
-  }
-  header h1 {
-    font-family: var(--mono); font-size: 19px; font-weight: 600;
-    letter-spacing: 0.2px; margin: 0; color: var(--text);
-  }
-  header .status {
-    font-family: var(--mono); font-size: 12px; color: var(--dim);
-    display: flex; align-items: center; gap: 7px;
-  }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bull); flex-shrink: 0; }
-  .dot.stale { background: var(--tier1); }
-  .dot.down { background: var(--bear); }
+  /* ---- Header ---- */
+  .header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:22px;flex-wrap:wrap;gap:10px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mark{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(240,169,61,.15);
+    animation:pulse 2.2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .brand h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em;}
+  .meta{font-family:var(--mono);font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:16px;}
+  .meta .sep{width:1px;height:12px;background:var(--border);}
 
-  .feed {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
-    padding: 14px 16px; margin-bottom: 24px;
-  }
-  .feed h2 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--dim); margin: 0 0 10px; font-weight: 600;
-  }
-  .feed-empty { font-family: var(--mono); font-size: 13px; color: var(--dim); padding: 6px 0; }
-  .feed-item {
-    display: flex; align-items: center; gap: 10px; padding: 7px 0;
-    border-top: 1px solid var(--line); font-family: var(--mono); font-size: 13px;
-  }
-  .feed-item:first-child { border-top: none; }
-  .feed-item .sym { font-weight: 700; width: 58px; flex-shrink: 0; }
-  .feed-item .pct { width: 68px; flex-shrink: 0; text-align: right; }
-  .feed-item .meta { color: var(--dim); font-size: 12px; }
+  /* ---- Stat strip (hero) ---- */
+  .stats{display:flex;gap:28px;padding:18px 22px;background:var(--surface-raised);border:1px solid var(--border);
+    border-radius:12px;margin-bottom:22px;flex-wrap:wrap;}
+  .stat .n{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;letter-spacing:-.01em;}
+  .stat .l{font-size:12px;color:var(--dim);margin-top:5px;}
+  .stat.active .n{color:var(--amber);}
+  .stat.busiest .n{font-size:20px;}
 
-  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
+  /* ---- Table ---- */
+  .wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1180px;}
+  thead th{position:sticky;top:0;text-align:left;color:var(--dim);font-weight:500;font-size:12.5px;
+    padding:13px 16px;background:var(--surface-raised);border-bottom:1px solid var(--border);white-space:nowrap;z-index:1;}
+  thead th.num{text-align:right;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;}
+  tbody tr.data-row{background:var(--surface);cursor:pointer;transition:background-color .12s;
+    border-left:3px solid transparent;}
+  tbody tr.data-row.st-halted{border-left-color:var(--amber);}
+  tbody tr.data-row.st-resumed{border-left-color:var(--teal);}
+  tbody tr.data-row:hover{background:#161c25;}
+  tbody tr:last-child td{border-bottom:none;}
+  .num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;}
 
-  .col-head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .col-head h2 {
-    font-size: 14px; font-weight: 700; margin: 0;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .col-head .count { font-family: var(--mono); font-size: 12px; color: var(--dim); }
-  .bull-title { color: var(--bull); }
-  .bear-title { color: var(--bear); }
+  .sym-cell{display:flex;align-items:center;gap:10px;}
+  .sym-box .sym{font-weight:600;font-size:14.5px;letter-spacing:-.01em;}
+  .sym-box .name{display:block;color:var(--dim);font-size:11.5px;margin-top:1px;max-width:130px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .copy-ic{color:var(--dim-2);font-size:13px;flex-shrink:0;}
 
-  .tier-block { margin-bottom: 16px; }
-  .tier-label {
-    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
-    letter-spacing: 0.6px; color: var(--dim); padding: 6px 0 6px 2px;
-  }
-  .tier-label .swatch { display: inline-block; width: 6px; height: 6px; border-radius: 1px; margin-right: 6px; }
+  .dir{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:12px;font-weight:600;}
+  .dir-down{background:rgba(255,92,108,.13);color:var(--red);}
+  .dir-up{background:rgba(55,214,122,.13);color:var(--green);}
+  .dir-na{background:rgba(128,138,156,.1);color:var(--dim);}
 
-  .row {
-    display: grid; grid-template-columns: 66px 1fr 52px; align-items: center;
-    gap: 10px; padding: 8px 10px; border-radius: 5px;
-    background: var(--panel); border: 1px solid var(--line);
-    margin-bottom: 5px;
-  }
-  .row .sym { font-family: var(--mono); font-weight: 700; font-size: 13.5px; }
-  .row .bar-track {
-    height: 6px; background: #161d29; border-radius: 3px; overflow: hidden;
-  }
-  .row .bar-fill { height: 100%; border-radius: 3px; }
-  .row .pct { font-family: var(--mono); font-size: 12.5px; text-align: right; color: var(--text); }
-  .row.alerted { outline: 1px solid; }
-  .row.alerted.up { outline-color: var(--bull); }
-  .row.alerted.down { outline-color: var(--bear); }
-  .row .badge {
-    font-family: var(--mono); font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
-    margin-left: 6px; background: var(--bull-dim); color: var(--bull);
-  }
-  .row .badge.down { background: var(--bear-dim); color: var(--bear); }
+  .reason{color:var(--amber);font-weight:600;font-family:var(--mono);font-size:12.5px;}
+  .chg.pos{color:var(--green);} .chg.neg{color:var(--red);}
 
-  footer {
-    margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line);
-    font-family: var(--mono); font-size: 11.5px; color: var(--dim); line-height: 1.6;
-  }
-  footer a { color: var(--dim); }
+  .band{display:flex;flex-direction:column;gap:2px;font-size:12px;align-items:flex-end;}
+  .band .up{color:var(--green);} .band .down{color:var(--red);}
 
-  .config-warning {
-    background: var(--bear-dim); border: 1px solid var(--bear);
-    color: var(--text); padding: 14px 16px; border-radius: 6px;
-    font-family: var(--mono); font-size: 13px; margin-bottom: 20px; line-height: 1.6;
-  }
+  .halts-badge{color:var(--amber);font-weight:600;}
+
+  .status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;}
+  .status .dot{width:6px;height:6px;border-radius:50%;}
+  .status-halted{color:var(--amber);} .status-halted .dot{background:var(--amber);}
+  .status-resumed{color:var(--teal);} .status-resumed .dot{background:var(--teal);}
+
+  .chev{color:var(--dim-2);font-size:14px;text-align:center;}
+  .empty{padding:40px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:13px;}
+
+  tr.detail-row td{background:#0d1117;cursor:default;white-space:normal;}
+  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;padding:4px 6px;}
+  .detail-grid div span{display:block;color:var(--dim);font-size:11px;margin-bottom:3px;}
+  .detail-grid div b{font-family:var(--mono);font-weight:500;font-size:13px;}
+
+  @media (prefers-reduced-motion: reduce){ .mark{animation:none;} }
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <header>
-    <h1>OPEN PRINT WATCH</h1>
-    <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">connecting…</span></div>
-  </header>
-
-  <div id="config-warning" class="config-warning" style="display:none;">
-    Dashboard isn't configured yet. Open this file and set SUPABASE_URL and
-    SUPABASE_ANON_KEY near the top of the &lt;script&gt; block (Settings → API
-    in your Supabase project — use the public "anon" key, never the
-    service_role key). This page never sends alerts itself — it only reads
-    status; the Edge Function + cron do the actual watching whether or not
-    this page is open.
-  </div>
-
-  <div class="feed">
-    <h2>Today's Alerts</h2>
-    <div id="feed-body"><div class="feed-empty">No alerts fired yet today.</div></div>
-  </div>
-
-  <div class="columns">
-    <div>
-      <div class="col-head">
-        <h2 class="bull-title">▲ BULLISH</h2>
-        <span class="count" id="bull-count"></span>
-      </div>
-      <div id="bull-list"></div>
+  <div class="header">
+    <div class="brand">
+      <span class="mark"></span>
+      <h1>Halt Scanner</h1>
     </div>
-    <div>
-      <div class="col-head">
-        <h2 class="bear-title">▼ BEARISH</h2>
-        <span class="count" id="bear-count"></span>
-      </div>
-      <div id="bear-list"></div>
+    <div class="meta">
+      <span id="status">connecting</span>
+      <span class="sep"></span>
+      <span id="clock"></span>
     </div>
   </div>
 
-  <footer>
-    Threshold: open ±1.0% vs prior close &nbsp;·&nbsp; Tiers: 🏆 ≥70% &nbsp; 🔷 60–69% &nbsp; ⚪ 50–59%<br/>
-    This page is a viewer only — closing it does not pause or affect alerting.
-    The watch runs on Supabase Cron + Edge Functions independently.<br/>
-    Auto-refreshes every 20s.
-  </footer>
+  <div class="stats">
+    <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Halts today</div></div>
+    <div class="stat active"><div class="n" id="stat-active">—</div><div class="l">Still halted</div></div>
+    <div class="stat busiest"><div class="n" id="stat-busiest">—</div><div class="l">Busiest symbol</div></div>
+  </div>
 
-</div>
+  <div class="wrap">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Symbol</th><th>Direction</th><th>Reason</th>
+            <th class="num">Price</th><th class="num">Chg %</th><th class="num">Bands</th>
+            <th class="num">Volume</th><th class="num">Mkt cap</th><th class="num">Halts</th>
+            <th>Halt time</th><th>Resume</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="body"><tr><td class="empty" colspan="13">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  // ---- CONFIGURE THESE TWO VALUES ----
-  const SUPABASE_URL = "https://qoatvewejohqxxxnwjfn.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_Wx7PFBUW9-WOAHqwcE9lZw_JANlKPSj";
+<script>
+  // ---- Configure before deploying ----
+  const SUPABASE_URL = "https://pmdxtxhllzmwbtqfxabl.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_ee1knfT93ylDtnZKXnWJWw_bHMPEXB1";
   // -------------------------------------
+  // Price / Chg% / Volume / Market cap / Direction all come from the
+  // `halts` table directly (written server-side by the halt-scraper Edge
+  // Function using Nasdaq's own quote + summary APIs) — no client-side
+  // API calls or rate limits to manage here.
 
-  const TIER_META = {
-    1: { label: "TOP · ≥70%", color: "#f0b429" },
-    2: { label: "MID · 60–69%", color: "#4f9ee8" },
-    3: { label: "BASE · 50–59%", color: "#6b7a94" },
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const statusEl = document.getElementById("status");
+  const clockEl = document.getElementById("clock");
+  const bodyEl = document.getElementById("body");
+  const statTotalEl = document.getElementById("stat-total");
+  const statActiveEl = document.getElementById("stat-active");
+  const statBusiestEl = document.getElementById("stat-busiest");
+
+  // LULD band from the halt's reference (pause threshold) price. Nasdaq's
+  // real tiering (5%/10%/20%, price-tier and time-of-day dependent) isn't
+  // in the feed, so this uses the standard 5% Tier-1 band as an approximation.
+  function bandFromThreshold(threshold, bandPct = 0.05){
+    if (threshold == null) return null;
+    const up = threshold * (1 + bandPct);
+    const down = threshold * (1 - bandPct);
+    return { up, down, pct: bandPct * 100 };
+  }
+
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+  });
+  const fmtEt = (iso) => iso ? etFmt.format(new Date(iso)) : "—";
+  const fmtVol = (v) => v == null ? "—" : v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(1)+"K" : String(v);
+  const fmtPrice = (p) => p == null ? "—" : "$" + Number(p).toFixed(2);
+  const fmtCap = (v) => {
+    if (v == null) return "—";
+    if (v >= 1e12) return "$" + (v/1e12).toFixed(2) + "T";
+    if (v >= 1e9)  return "$" + (v/1e9).toFixed(2) + "B";
+    if (v >= 1e6)  return "$" + (v/1e6).toFixed(1) + "M";
+    return "$" + v;
   };
 
-  const statusDot = document.getElementById("status-dot");
-  const statusText = document.getElementById("status-text");
-  const configWarning = document.getElementById("config-warning");
-
-  if (SUPABASE_URL.includes("YOUR_PROJECT_REF") || SUPABASE_ANON_KEY.includes("YOUR_ANON")) {
-    configWarning.style.display = "block";
-    statusDot.classList.add("stale");
-    statusText.textContent = "not configured";
-  } else {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    boot(supabase);
+  function directionBadge(changePct){
+    if (changePct == null) return '<span class="dir dir-na">— n/a</span>';
+    if (changePct > 0) return '<span class="dir dir-up">▲ up</span>';
+    if (changePct < 0) return '<span class="dir dir-down">▼ down</span>';
+    return '<span class="dir dir-na">— n/a</span>';
   }
 
-  function todayStr() {
-    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
-    return fmt.format(new Date()); // YYYY-MM-DD
+  function statusBadge(status){
+    return status === "halted"
+      ? '<span class="status status-halted"><span class="dot"></span>Halted</span>'
+      : '<span class="status status-resumed"><span class="dot"></span>Resumed</span>';
   }
 
-  function renderColumn(rows, direction, alertedMap, listElId, countElId) {
-    const el = document.getElementById(listElId);
-    const filtered = rows.filter(r => r.direction === direction);
-    document.getElementById(countElId).textContent = `${filtered.length} tickers`;
-    const byTier = { 1: [], 2: [], 3: [] };
-    filtered.forEach(r => byTier[r.tier].push(r));
+  // Per-symbol halt count for the displayed trading day, computed from the
+  // same rows already fetched for that date (so it matches the Friday
+  // fallback on weekends automatically, no separate query needed).
+  function computeHaltCounts(rows){
+    const counts = {};
+    for (const r of rows) counts[r.symbol] = (counts[r.symbol] ?? 0) + 1;
+    return counts;
+  }
 
-    el.innerHTML = "";
-    [1, 2, 3].forEach(tier => {
-      const group = byTier[tier];
-      if (!group.length) return;
-      const block = document.createElement("div");
-      block.className = "tier-block";
-      const meta = TIER_META[tier];
-      block.innerHTML = `<div class="tier-label"><span class="swatch" style="background:${meta.color}"></span>${meta.label}</div>`;
-      group.sort((a, b) => b.probability - a.probability).forEach(r => {
-        const key = `${r.symbol}:${r.direction}`;
-        const isAlerted = alertedMap.has(key);
-        const row = document.createElement("div");
-        row.className = `row${isAlerted ? " alerted " + direction : ""}`;
-        const barColor = direction === "up" ? "var(--bull)" : "var(--bear)";
-        row.innerHTML = `
-          <div class="sym">${r.symbol}${isAlerted ? `<span class="badge ${direction}">FIRED</span>` : ""}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${r.probability}%;background:${barColor}"></div></div>
-          <div class="pct">${r.probability.toFixed(1)}%</div>
-        `;
-        block.appendChild(row);
+  function renderStats(rows, haltCounts){
+    statTotalEl.textContent = rows.length;
+    statActiveEl.textContent = rows.filter(r => r.status === "halted").length;
+    let busiestSymbol = "—", busiestCount = 0;
+    for (const [sym, count] of Object.entries(haltCounts)){
+      if (count > busiestCount){ busiestSymbol = sym; busiestCount = count; }
+    }
+    statBusiestEl.textContent = busiestCount > 1 ? `${busiestSymbol} · ${busiestCount}×` : busiestSymbol;
+  }
+
+  function detailRowHtml(r, colspan){
+    return `<tr class="detail-row" data-detail-for="${r.symbol}-${r.halt_time}" style="display:none;">
+      <td colspan="${colspan}">
+        <div class="detail-grid">
+          <div><span>Company</span><b>${r.issue_name ?? "—"}</b></div>
+          <div><span>Market</span><b>${r.market ?? "—"}</b></div>
+          <div><span>Reference price</span><b>${fmtPrice(r.pause_threshold_price)}</b></div>
+          <div><span>Halt date</span><b>${r.halt_date ?? "—"}</b></div>
+          <div><span>Resumption quote</span><b>${fmtEt(r.resumption_quote_time)}</b></div>
+          <div><span>Resumption trade</span><b>${fmtEt(r.resumption_trade_time)}</b></div>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  // Which trading day to show: today (ET) on a weekday, or last Friday's
+  // session when viewed over the weekend (Nasdaq doesn't trade Sat/Sun,
+  // so "today" would otherwise show nothing).
+  function targetTradingDateEt(){
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short",
+    }).formatToParts(new Date());
+    const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
+    let d = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)));
+    const weekday = p.weekday; // "Mon".."Sun"
+    if (weekday === "Sat") d.setUTCDate(d.getUTCDate() - 1);      // -> Friday
+    else if (weekday === "Sun") d.setUTCDate(d.getUTCDate() - 2); // -> Friday
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  async function loadAll(){
+    const tradingDate = targetTradingDateEt();
+    const { data: rows, error } = await sb.from("halts")
+      .select("*").eq("halt_date", tradingDate)
+      .order("halt_time", { ascending: false }).limit(200);
+
+    if (error){ statusEl.textContent = "error"; console.error(error); return; }
+    if (!rows || !rows.length){
+      bodyEl.innerHTML = `<tr><td class="empty" colspan="13">No halts on ${tradingDate}</td></tr>`;
+      statusEl.textContent = "live";
+      statTotalEl.textContent = "0"; statActiveEl.textContent = "0"; statBusiestEl.textContent = "—";
+      return;
+    }
+
+    const haltCounts = computeHaltCounts(rows);
+    renderStats(rows, haltCounts);
+
+    const colspan = 13;
+    bodyEl.innerHTML = rows.map(r => {
+      const band = bandFromThreshold(r.pause_threshold_price);
+      const rowId = `${r.symbol}-${r.halt_time}`;
+      const changePct = r.change_pct;
+      const chgClass = changePct > 0 ? "pos" : changePct < 0 ? "neg" : "";
+      const chgText = changePct == null ? "—" : `${changePct > 0 ? "+" : ""}${Number(changePct).toFixed(1)}%`;
+      return `
+        <tr class="data-row st-${r.status}" data-row-id="${rowId}" title="Click for details">
+          <td>
+            <div class="sym-cell">
+              <span class="copy-ic">▤</span>
+              <div class="sym-box"><span class="sym">${r.symbol}</span><span class="name">${r.issue_name ?? ""}</span></div>
+            </div>
+          </td>
+          <td>${directionBadge(changePct)}</td>
+          <td class="reason">${r.reason_code ?? "—"}</td>
+          <td class="num">${fmtPrice(r.last_price)}</td>
+          <td class="num chg ${chgClass}">${chgText}</td>
+          <td class="num">
+            <div class="band">
+              ${band ? `<span class="up">▲ ${fmtPrice(band.up)}</span><span class="down">▼ ${fmtPrice(band.down)}</span>` : "—"}
+            </div>
+          </td>
+          <td class="num">${fmtVol(r.volume)}</td>
+          <td class="num">${fmtCap(r.market_cap)}</td>
+          <td class="num"><span class="halts-badge">${haltCounts[r.symbol] ?? 1}</span></td>
+          <td class="num">${fmtEt(r.halt_time)}</td>
+          <td class="num">${fmtEt(r.resumption_trade_time)}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td class="chev">›</td>
+        </tr>
+        ${detailRowHtml(r, colspan)}
+      `;
+    }).join("");
+
+    // Wire row click -> toggle detail row
+    bodyEl.querySelectorAll("tr[data-row-id]").forEach(tr => {
+      tr.addEventListener("click", () => {
+        const id = tr.getAttribute("data-row-id");
+        const detail = bodyEl.querySelector(`tr[data-detail-for="${id}"]`);
+        if (detail) detail.style.display = detail.style.display === "none" ? "" : "none";
       });
-      el.appendChild(block);
     });
+
+    statusEl.textContent = "live";
   }
 
-  function renderFeed(alerts) {
-    const body = document.getElementById("feed-body");
-    if (!alerts.length) {
-      body.innerHTML = '<div class="feed-empty">No alerts fired yet today.</div>';
-      return;
-    }
-    body.innerHTML = "";
-    alerts
-      .slice()
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      .forEach(a => {
-        const item = document.createElement("div");
-        item.className = "feed-item";
-        const color = a.direction === "up" ? "var(--bull)" : "var(--bear)";
-        const arrow = a.direction === "up" ? "▲" : "▼";
-        const meta = TIER_META[a.tier];
-        item.innerHTML = `
-          <span class="sym" style="color:${color}">${a.symbol}</span>
-          <span class="pct" style="color:${color}">${arrow} ${a.open_pct >= 0 ? "+" : ""}${Number(a.open_pct).toFixed(2)}%</span>
-          <span class="meta">${meta.label} · edge ${Number(a.probability).toFixed(1)}% · ${new Date(a.created_at).toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET</span>
-        `;
-        body.appendChild(item);
-      });
+  let debounceTimer = null;
+  function scheduleReload(){
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(loadAll, 1200); // coalesce bursts of row changes into one reload
   }
 
-  async function refresh(supabase) {
-    const today = todayStr();
-    const [{ data: watch, error: wErr }, { data: alerts, error: aErr }] = await Promise.all([
-      supabase.from("watchlist").select("symbol, direction, probability, tier"),
-      supabase.from("open_alerts").select("*").eq("alert_date", today),
-    ]);
+  loadAll();
+  sb.channel("halts-feed")
+    .on("postgres_changes", { event: "*", schema: "public", table: "halts" }, scheduleReload)
+    .subscribe();
 
-    if (wErr || aErr) {
-      statusDot.classList.add("down");
-      statusText.textContent = "connection error";
-      return;
-    }
+  setInterval(loadAll, 15000); // full refresh — price/volume/direction are already in the row data
 
-    statusDot.classList.remove("stale", "down");
-    statusText.textContent = `live · updated ${new Date().toLocaleTimeString()}`;
-
-    const alertedMap = new Map((alerts || []).map(a => [`${a.symbol}:${a.direction}`, a]));
-    renderColumn(watch || [], "up", alertedMap, "bull-list", "bull-count");
-    renderColumn(watch || [], "down", alertedMap, "bear-list", "bear-count");
-    renderFeed(alerts || []);
+  function tickClock(){
+    clockEl.textContent = etFmt.format(new Date()) + " ET";
   }
-
-  function boot(supabase) {
-    refresh(supabase);
-    setInterval(() => refresh(supabase), 20000);
-  }
+  tickClock();
+  setInterval(tickClock, 1000);
 </script>
 </body>
 </html>
