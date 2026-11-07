@@ -78,8 +78,6 @@
   .tag.up{background:rgba(58,211,160,.12);color:var(--up)}
   .tag.dn{background:rgba(255,107,107,.13);color:var(--dn)}
   .src{font:500 11.5px var(--num);color:var(--faint)}
-  .band{display:flex;flex-direction:column;align-items:flex-end;line-height:1.35}
-  .band small{color:var(--faint);font-size:11.5px}
   .empty{padding:34px 18px;text-align:center;color:var(--mut)}
   .err{color:var(--dn);padding:10px 2px;min-height:0}
   .err:empty{display:none}
@@ -161,15 +159,13 @@
     <span class="meta" id="m2"></span>
     <span class="sp"></span>
     <label class="check"><input id="all" type="checkbox"> Include stocks outside my filters</label>
-    <label class="check" style="gap:8px">Band above $3
-      <select id="band" class="sel"><option value="0.05">5% (tier 1)</option><option value="0.10">10% (tier 2)</option></select></label>
   </div>
 
   <div id="tiles"></div>
 
   <div class="sheet"><table>
     <thead><tr>
-      <th>Stock</th><th>Direction</th><th>Price</th><th>Halt price</th><th>LULD bands</th>
+      <th>Stock</th><th>Direction</th><th>Price</th><th>Halt price</th>
       <th title="Estimated: market cap divided by price">Float</th><th>Volume</th><th>Halts</th>
       <th>Halted at (ET)</th><th>Resumed at (ET)</th><th>Status</th>
     </tr></thead>
@@ -195,7 +191,6 @@ const abbr = (n) => n == null ? "–" : n >= 1e12 ? (n/1e12).toFixed(2)+"T" : n 
 const px = (n) => n == null ? "–" : "$" + Number(n).toFixed(n < 1 ? 4 : 2);
 const t12 = (t) => { if (!t) return "–"; const [h,m,s]=t.split(":"); const H=+h; return `${((H+11)%12)+1}:${m}:${String(parseInt(s||0)).padStart(2,"0")} ${H>=12?"PM":"AM"}`; };
 const etDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
-const luldPct = (p) => p > 3 ? +$("band").value : p >= 0.75 ? 0.20 : Math.min(0.15 / p, 0.75);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
 // ---- filters: remembered in this browser ----
@@ -203,7 +198,7 @@ const NUM_IDS = ["fp","fpx","fc","fv","fm1","fm2","ff"], CHK_IDS = ["honly","all
 const DEFAULTS = { fp: "1", fpx: "", fc: "30", fv: "300000", fm1: "", fm2: "", ff: "" };
 function saveFilters() {
   try {
-    const o = {}; NUM_IDS.forEach((i) => o[i] = $(i).value); CHK_IDS.forEach((i) => o[i] = $(i).checked); o.band = $("band").value;
+    const o = {}; NUM_IDS.forEach((i) => o[i] = $(i).value); CHK_IDS.forEach((i) => o[i] = $(i).checked);
     localStorage.setItem("halts_filters_v2", JSON.stringify(o));
   } catch {}
 }
@@ -211,7 +206,6 @@ function loadFilters() {
   try {
     const o = JSON.parse(localStorage.getItem("halts_filters_v2") || "null"); if (!o) return;
     NUM_IDS.forEach((i) => { if (i in o) $(i).value = o[i]; }); CHK_IDS.forEach((i) => { if (i in o) $(i).checked = !!o[i]; });
-    if (o.band) $("band").value = o.band;
   } catch {}
 }
 
@@ -294,15 +288,13 @@ function render() {
   const calc = ({ s, list, last }) => {
     const g = gmap[s], inf = INFO[s] || {};
     const price = g?.price ?? last.pause_price;
-    const pct = price ? luldPct(price) : null;
     const halted = isHalted(last);
     const end = last.resume_epoch || last.timer_end_epoch;
     const left = halted && end ? Math.max(0, end - now) : 0;
     const up = g ? g.change_pct >= 0 : (inf.prev_close && last.pause_price ? last.pause_price >= inf.prev_close : null);
     // Nasdaq/NYSE publish no free float: shares outstanding if present, else market cap / price
     const float = inf.shares_outstanding ?? (price && inf.market_cap ? inf.market_cap / price : (g && g.price && g.market_cap ? g.market_cap / g.price : null));
-    return { s, list, last, g, price, pct, halted, left, up, float,
-      hi: pct ? price * (1 + pct) : null, lo: pct ? price * (1 - pct) : null };
+    return { s, list, last, g, price, halted, left, up, float };
   };
   const R = rows.map(calc);
   const live = R.filter((r) => r.halted);
@@ -318,8 +310,7 @@ function render() {
           <div class="who">${esc(r.last.name)}</div>
           <div class="clock ${wait ? "wait" : ""}" ${wait ? "" : `aria-label="${mm} minutes ${ss} seconds left"`}>${wait ? "Waiting for resume" : `${mm}:${ss}`}</div>
           <div class="drain"><i style="width:${Math.min(100, r.left / 300000 * 100)}%"></i></div>
-          <div class="facts"><div>Halted at<b>${t12(r.last.halt_time)}</b></div><div>Halt today<b>#${r.list.length}</b></div>
-            <div class="wide"><span>Bands</span><b>${r.lo ? px(r.lo) : "–"} to ${r.hi ? px(r.hi) : "–"}</b></div></div>
+          <div class="facts"><div>Halted at<b>${t12(r.last.halt_time)}</b></div><div>Halt today<b>#${r.list.length}</b></div></div>
         </article>`; }).join("")}</div>`
     : `<div class="none">Nothing is halted right now. Resumed halts stay in the table below for the whole day.</div>`;
 
@@ -329,17 +320,16 @@ function render() {
       <td><div class="sym">${esc(r.s)}</div><div class="nm">${esc(r.last.name)}${r.last.market ? " on " + esc(r.last.market) : ""}</div></td>
       <td>${dir}</td>
       <td class="n"><b>${px(r.price)}</b></td><td class="n mut">${px(r.last.pause_price)}</td>
-      <td>${r.pct ? `<span class="band n"><span class="up">${px(r.hi)}</span><span class="dn">${px(r.lo)}</span><small>${(r.pct*100).toFixed(1)}% bands</small></span>` : "–"}</td>
       <td class="n">${abbr(r.float)}</td><td class="n">${abbr(r.g?.volume)}</td>
       <td class="n halt">${r.list.length}</td>
       <td class="n">${t12(r.last.halt_time)}</td>
       <td class="n ${r.halted ? "mut" : "up"}">${r.halted ? "–" : t12(r.last.resume_time)}</td>
       <td>${r.halted ? '<span class="tag halted">Halted</span>' : '<span class="tag ok">Resumed</span>'}</td></tr>`;
-  }).join("") || `<tr><td colspan="11" class="empty">No LUDP halts yet. A stock appears here within seconds of its first halt. To see halts for any stock, tick "Include stocks outside my filters".</td></tr>`;
+  }).join("") || `<tr><td colspan="10" class="empty">No LUDP halts yet. A stock appears here within seconds of its first halt. To see halts for any stock, tick "Include stocks outside my filters".</td></tr>`;
 }
 
 loadFilters();
-[...NUM_IDS, ...CHK_IDS, "band"].forEach((id) => $(id).addEventListener("change", () => { saveFilters(); render(); }));
+[...NUM_IDS, ...CHK_IDS].forEach((id) => $(id).addEventListener("change", () => { saveFilters(); render(); }));
 NUM_IDS.forEach((id) => $(id).addEventListener("input", () => { saveFilters(); render(); }));
 $("reset").onclick = () => { NUM_IDS.forEach((i) => $(i).value = DEFAULTS[i]); CHK_IDS.forEach((i) => $(i).checked = false); saveFilters(); render(); };
 poll();
