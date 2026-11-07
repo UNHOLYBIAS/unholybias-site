@@ -3,82 +3,188 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Gainers + LUDP Halts</title>
+<title>Gainers and halts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0b0d10;--panel:#111418;--line:#1e2329;--tx:#e6e9ee;--mut:#8a93a0;--up:#2ecc71;--dn:#ff5c5c;--warn:#f5b301}
+  :root{
+    --ink:#0f1522; --surface:#151d2e; --raise:#1c2639; --line:#25304a;
+    --tx:#e9ebf0; --mut:#8e9ab1; --faint:#5c6985;
+    --up:#3ad3a0; --dn:#ff6b6b; --halt:#ffb547; --focus:#7aa2ff;
+    --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    --num:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
-  .win{flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:1px solid var(--line)}
-  .bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
-  .bar h2{margin:0;font-size:14px;letter-spacing:.04em}
-  .sp{flex:1}
-  .bar label{color:var(--mut);font-size:12px;white-space:nowrap}
-  .bar input[type=number]{width:84px;background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
-  .bar select{width:130px;background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
-  .bar button{background:#1b2027;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
-  .meta{color:var(--mut);font-size:12px}
-  .scroll{overflow:auto;flex:1}
+  html{color-scheme:dark}
+  body{margin:0;background:var(--ink);color:var(--tx);font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+  :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+  /* ---------- page header ---------- */
+  .top{display:flex;align-items:center;gap:18px;padding:16px 28px;border-bottom:1px solid var(--line)}
+  .top h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .top .sp{flex:1}
+  .live{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:13px}
+  .live i{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
+  .live.ok i{background:var(--up);box-shadow:0 0 0 0 rgba(58,211,160,.5);animation:ping 2.4s ease-out infinite}
+  .live.warn i{background:var(--halt)}
+  .live.bad i{background:var(--faint)}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(58,211,160,.45)}70%,100%{box-shadow:0 0 0 7px rgba(58,211,160,0)}}
+
+  /* ---------- sections ---------- */
+  main{padding:0 28px 48px}
+  section{padding-top:28px}
+  .head{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin-bottom:14px}
+  .head h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.015em}
+  .head .meta{color:var(--mut);font-size:13px}
+  .head .sp{flex:1}
+
+  /* ---------- filters ---------- */
+  .filters{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld .cap{font-size:12px;color:var(--mut);font-weight:500}
+  .box{display:flex;align-items:center;gap:6px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:36px;color:var(--faint)}
+  .box:focus-within{border-color:var(--focus)}
+  .box input{width:74px;background:none;border:0;color:var(--tx);font:500 14px var(--num);padding:0;outline:none;min-width:0}
+  .box input::placeholder{color:var(--faint);font-family:var(--sans)}
+  .box.wide input{width:92px}
+  .box span{font-size:13px}
+  .check{display:flex;align-items:center;gap:8px;height:36px;color:var(--tx);font-size:14px;cursor:pointer;user-select:none}
+  .check input{width:16px;height:16px;accent-color:var(--halt)}
+  .btn{height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--tx);font:500 13px var(--sans);cursor:pointer}
+  .btn:hover{border-color:var(--faint)}
+  select.sel{height:36px;border-radius:8px;border:1px solid var(--line);background:var(--ink);color:var(--tx);font:500 14px var(--sans);padding:0 10px}
+
+  /* ---------- tables ---------- */
+  .sheet{max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
   table{width:100%;border-collapse:collapse}
-  th{position:sticky;top:0;background:var(--panel);color:var(--mut);font-weight:600;text-align:right;padding:8px 10px;font-size:12px;white-space:nowrap}
-  td{padding:8px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
-  th:first-child,td:first-child{text-align:left}
-  .sym{font-weight:700;font-family:ui-monospace,Menlo,monospace}
-  .nm{color:var(--mut);font-size:12px;max-width:190px;overflow:hidden;text-overflow:ellipsis}
-  .up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}.warn{color:var(--warn)}
-  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
-  .pill.up{background:#12301f}.pill.dn{background:#351616}
-  .st-halted{color:var(--dn);font-weight:700}.st-resumed{color:var(--up);font-weight:700}
-  .timer{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--warn)}
-  tr.halted{background:#2a1214}
-  .src{font-size:11px;color:var(--mut)}
-  .err{color:var(--dn);padding:10px 14px}
+  th{position:sticky;top:0;z-index:1;background:var(--surface);color:var(--mut);font-weight:500;font-size:12.5px;text-align:right;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:11px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(37,48,74,.55);vertical-align:middle}
+  th:first-child,td:first-child{text-align:left;padding-left:18px}
+  th:last-child,td:last-child{padding-right:18px}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:rgba(255,255,255,.025)}
+  tr.on td:first-child{box-shadow:inset 3px 0 0 var(--halt)}
+  .n{font-family:var(--num);font-size:13.5px}
+  .sym{font-weight:700;font-size:15px;letter-spacing:.01em}
+  .nm{color:var(--mut);font-size:12.5px;max-width:230px;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}.halt{color:var(--halt)}
+  .chg{display:inline-flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:110px}
+  .chg b{font:600 13.5px var(--num)}
+  .chg i{display:block;height:3px;border-radius:2px;background:currentColor;opacity:.55;min-width:3px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+  .tag.halted{background:rgba(255,181,71,.14);color:var(--halt)}
+  .tag.ok{background:rgba(58,211,160,.12);color:var(--up)}
+  .tag.up{background:rgba(58,211,160,.12);color:var(--up)}
+  .tag.dn{background:rgba(255,107,107,.13);color:var(--dn)}
+  .src{font:500 11.5px var(--num);color:var(--faint)}
+  .band{display:flex;flex-direction:column;align-items:flex-end;line-height:1.35}
+  .band small{color:var(--faint);font-size:11.5px}
+  .empty{padding:34px 18px;text-align:center;color:var(--mut)}
+  .err{color:var(--dn);padding:10px 2px;min-height:0}
+  .err:empty{display:none}
+
+  /* ---------- halted-now tiles ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:16px}
+  .tile{background:var(--surface);border:1px solid rgba(255,181,71,.35);border-radius:16px;padding:16px 18px 14px;display:flex;flex-direction:column;gap:12px}
+  .tile .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .tile .sym{font-size:20px}
+  .tile .px{font:600 16px var(--num)}
+  .tile .who{color:var(--mut);font-size:12.5px;margin-top:-8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clock{font:700 44px/1 var(--num);letter-spacing:-.02em;color:var(--halt)}
+  .clock.wait{font:600 22px/44px var(--sans);letter-spacing:0;animation:breathe 1.6s ease-in-out infinite}
+  @keyframes breathe{50%{opacity:.45}}
+  .drain{height:6px;border-radius:4px;background:var(--raise);overflow:hidden}
+  .drain i{display:block;height:100%;background:var(--halt);border-radius:4px;transition:width 1s linear}
+  .facts{display:grid;grid-template-columns:1fr auto;gap:8px 14px;color:var(--mut);font-size:12px}
+  .facts div{display:flex;flex-direction:column;gap:2px}
+  .facts div:nth-child(even){align-items:flex-end;text-align:right}
+  .facts b{color:var(--tx);font:500 13px var(--num)}
+  .facts .wide{grid-column:1 / -1;flex-direction:row;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:8px}
+  .none{padding:16px 18px;border:1px dashed var(--line);border-radius:12px;color:var(--mut);margin-bottom:16px}
+
+  @media (max-width:720px){
+    .top,main{padding-left:14px;padding-right:14px}
+    .filters{gap:12px 14px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .live.ok i,.clock.wait{animation:none}
+    .drain i{transition:none}
+  }
 </style>
 </head>
 <body>
 
-<section class="win">
-  <div class="bar">
-    <h2>GAINERS</h2>
-    <label>Price $ min <input id="fp" type="number" value="1" step="0.1"></label>
-    <label>max <input id="fpx" type="number" step="0.1" placeholder="any"></label>
-    <label>Move % min <input id="fc" type="number" value="30"></label>
-    <label>Volume min <input id="fv" type="number" value="300000"></label>
-    <label>Mkt cap $M min <input id="fm1" type="number" placeholder="any"></label>
-    <label>max <input id="fm2" type="number" placeholder="any"></label>
-    <label title="Float is estimated as market cap / price (Nasdaq and NYSE publish no free float)">Float M shares max* <input id="ff" type="number" placeholder="any"></label>
-    <label><input id="honly" type="checkbox"> halted now only</label>
-    <button id="reset">Reset</button>
-    <span class="sp"></span>
+<header class="top">
+  <h1>Gainers and halts</h1>
+  <span class="sp"></span>
+  <span class="live" id="lg" title="Gainers scraper"><i></i><span>Gainers</span></span>
+  <span class="live" id="lh" title="Halts scraper"><i></i><span>Halts</span></span>
+</header>
+
+<main>
+<section aria-labelledby="gt">
+  <div class="head">
+    <h2 id="gt">Gainers</h2>
     <span class="meta" id="m1"></span>
   </div>
-  <div class="scroll"><table>
-    <thead><tr><th>Symbol</th><th>Price</th><th>Change</th><th>Volume</th><th>Market Cap</th><th title="market cap / price">Float*</th><th>LUDP halts</th><th>Status</th><th title="SA = stockanalysis.com (incl. extended hours), NQ = Nasdaq screener (regular session)">Src</th></tr></thead>
+
+  <div class="filters">
+    <div class="fld"><span class="cap">Price</span>
+      <div class="box"><span>$</span><input id="fp" type="number" value="1" step="0.1" aria-label="Minimum price"><span>to</span><input id="fpx" type="number" step="0.1" placeholder="any" aria-label="Maximum price"></div></div>
+    <div class="fld"><span class="cap">Move at least</span>
+      <div class="box"><input id="fc" type="number" value="30" aria-label="Minimum move percent"><span>%</span></div></div>
+    <div class="fld"><span class="cap">Volume at least</span>
+      <div class="box wide"><input id="fv" type="number" value="300000" aria-label="Minimum volume"></div></div>
+    <div class="fld"><span class="cap">Market cap, in millions</span>
+      <div class="box"><span>$</span><input id="fm1" type="number" placeholder="min" aria-label="Minimum market cap in millions"><span>to</span><input id="fm2" type="number" placeholder="max" aria-label="Maximum market cap in millions"></div></div>
+    <div class="fld"><span class="cap" title="Estimated as market cap divided by price. Nasdaq and NYSE do not publish free float.">Float up to, in millions of shares</span>
+      <div class="box"><input id="ff" type="number" placeholder="any" aria-label="Maximum float in millions of shares"></div></div>
+    <label class="check"><input id="honly" type="checkbox"> Halted right now</label>
+    <button class="btn" id="reset" type="button">Reset filters</button>
+  </div>
+
+  <div class="sheet"><table>
+    <thead><tr>
+      <th>Stock</th><th>Price</th><th>Change</th><th>Volume</th><th>Market cap</th>
+      <th title="Estimated: market cap divided by price">Float</th><th>Halts today</th><th>Status</th>
+      <th title="SA is stockanalysis.com, including extended hours. NQ is the Nasdaq screener, regular session.">Source</th>
+    </tr></thead>
     <tbody id="b1"></tbody>
-  </table><div class="err" id="e1"></div></div>
+  </table></div>
+  <div class="err" id="e1" role="alert"></div>
 </section>
 
-<section class="win">
-  <div class="bar">
-    <h2>HALTS · LUDP only</h2>
-    <label><input id="all" type="checkbox"> show every LUDP halt (not only gainers)</label>
-    <label>LULD band above $3
-      <select id="band"><option value="0.05">5% (Tier 1)</option><option value="0.10">10% (Tier 2)</option></select>
-    </label>
-    <span class="sp"></span>
+<section aria-labelledby="ht">
+  <div class="head">
+    <h2 id="ht">LUDP halts</h2>
     <span class="meta" id="m2"></span>
+    <span class="sp"></span>
+    <label class="check"><input id="all" type="checkbox"> Include stocks outside my filters</label>
+    <label class="check" style="gap:8px">Band above $3
+      <select id="band" class="sel"><option value="0.05">5% (tier 1)</option><option value="0.10">10% (tier 2)</option></select></label>
   </div>
-  <div class="scroll"><table>
-    <thead><tr><th>Symbol</th><th>Direction</th><th>Reason</th><th>Price</th><th>Halt Px</th><th>LULD Bands</th><th>Float*</th><th>Volume</th><th>Halts</th><th>Halt Time (ET)</th><th>5-min timer</th><th>Resume (ET)</th><th>Status</th></tr></thead>
+
+  <div id="tiles"></div>
+
+  <div class="sheet"><table>
+    <thead><tr>
+      <th>Stock</th><th>Direction</th><th>Price</th><th>Halt price</th><th>LULD bands</th>
+      <th title="Estimated: market cap divided by price">Float</th><th>Volume</th><th>Halts</th>
+      <th>Halted at (ET)</th><th>Resumed at (ET)</th><th>Status</th>
+    </tr></thead>
     <tbody id="b2"></tbody>
-  </table><div class="err" id="e2"></div></div>
+  </table></div>
+  <div class="err" id="e2" role="alert"></div>
 </section>
+</main>
 
 <script>
-// ====== CONFIG (your Supabase project; anon key is public + read-only by RLS) ======
+// ====== CONFIG (your Supabase project; the anon key is public and read-only by RLS) ======
 const SUPABASE_URL = "https://qqxnddhtrntwlzkigyyo.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxeG5kZGh0cm50d2x6a2lneXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5ODU4MTksImV4cCI6MjEwOTU2MTgxOX0.dKBL2QK7WYCSNMCbvRxqh1rBh6LxRIaBnAcSozuxM8A";
 const POLL_MS = 5000;
-// ===================================================================================
+// =======================================================================================
 
 const $ = (id) => document.getElementById(id);
 const rest = (path) =>
@@ -90,6 +196,7 @@ const px = (n) => n == null ? "–" : "$" + Number(n).toFixed(n < 1 ? 4 : 2);
 const t12 = (t) => { if (!t) return "–"; const [h,m,s]=t.split(":"); const H=+h; return `${((H+11)%12)+1}:${m}:${String(parseInt(s||0)).padStart(2,"0")} ${H>=12?"PM":"AM"}`; };
 const etDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 const luldPct = (p) => p > 3 ? +$("band").value : p >= 0.75 ? 0.20 : Math.min(0.15 / p, 0.75);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
 // ---- filters: remembered in this browser ----
 const NUM_IDS = ["fp","fpx","fc","fv","fm1","fm2","ff"], CHK_IDS = ["honly","all"];
@@ -126,20 +233,31 @@ async function poll() {
     INFO = syms.length ? Object.fromEntries((await rest(`symbol_info?symbol=in.(${syms.join(",")})&select=*`)).map((x) => [x.symbol, x])) : {};
     $("e1").textContent = $("e2").textContent = "";
     render();
-  } catch (e) { $("e1").textContent = "Error: " + e.message; }
+  } catch (e) {
+    $("e1").textContent = "Could not load data from Supabase: " + e.message + ". Check your connection, then wait a few seconds.";
+  }
 }
 
-const ago = (s) => s ? Math.max(0, Math.round((Date.now() - Date.parse(s.last_run)) / 1000)) + "s ago" : "never";
 const val = (id, dflt) => { const v = $(id).value.trim(); return v === "" || isNaN(+v) ? dflt : +v; };
+
+function liveDot(el, label, s) {
+  const sec = s ? (Date.now() - Date.parse(s.last_run)) / 1000 : Infinity;
+  el.className = "live " + (sec < 25 ? "ok" : sec < 90 ? "warn" : "bad");
+  el.querySelector("span").textContent = sec < 120 ? `${label} ${Math.round(sec)}s` : `${label} idle`;
+  el.title = `${label} data refreshed ${sec < 120 ? Math.round(sec) + " seconds ago" : "a while ago"}. Scrapers run Monday to Friday, 4:00 AM to 8:00 PM Eastern.`;
+}
 
 function render() {
   const now = Date.now();
+  liveDot($("lg"), "Gainers", STATUS.gainers);
+  liveDot($("lh"), "Halts", STATUS.halts);
+
   const bySym = {};
   for (const h of H) (bySym[h.symbol] ||= []).push(h);
   const isHalted = (h) => !(h.resume_epoch && h.resume_epoch <= now);
   const haltedNow = (s) => !!bySym[s]?.[0] && isHalted(bySym[s][0]);
 
-  // ---- apply the gainers filters ----
+  // ---- gainers filters ----
   const minP = val("fp", 0), maxP = val("fpx", Infinity), minC = val("fc", -Infinity), minV = val("fv", 0);
   const minM = val("fm1", 0) * 1e6, maxM = val("fm2", Infinity) * 1e6, maxF = val("ff", Infinity) * 1e6;
   const capFilter = minM > 0 || maxM < Infinity, floatFilter = maxF < Infinity;
@@ -150,51 +268,74 @@ function render() {
     (!$("honly").checked || haltedNow(g.symbol))
   );
 
-  $("m1").textContent = `${fg.length} match / ${G.length} stored · scraper ${ago(STATUS.gainers)}`;
+  $("m1").textContent = `${fg.length} of ${G.length} stocks match`;
+  const topMove = Math.max(1, ...fg.map((g) => Math.abs(g.change_pct)));
   $("b1").innerHTML = fg.map((g) => {
     const hs = bySym[g.symbol] || [];
     const halted = haltedNow(g.symbol);
     const fl = g.market_cap && g.price ? g.market_cap / g.price : null;
-    return `<tr class="${halted ? "halted" : ""}">
-      <td><div class="sym">${g.symbol}</div><div class="nm">${g.name || ""}</div></td>
-      <td>${px(g.price)}</td><td class="${g.change_pct >= 0 ? "up" : "dn"}">${g.change_pct >= 0 ? "+" : ""}${Number(g.change_pct).toFixed(2)}%</td>
-      <td>${abbr(g.volume)}</td><td>${abbr(g.market_cap)}</td><td>${abbr(fl)}</td>
-      <td class="${hs.length ? "warn" : "mut"}">${hs.length}</td>
-      <td>${halted ? '<span class="st-halted">HALTED</span>' : '<span class="mut">trading</span>'}</td>
-      <td class="src">${g.source || ""}</td></tr>`;
-  }).join("") || `<tr><td colspan="9" class="mut">No stocks match the filters.</td></tr>`;
+    const pos = g.change_pct >= 0;
+    return `<tr class="${halted ? "on" : ""}">
+      <td><div class="sym">${esc(g.symbol)}</div><div class="nm">${esc(g.name)}</div></td>
+      <td class="n">${px(g.price)}</td>
+      <td><span class="chg ${pos ? "up" : "dn"}"><b>${pos ? "+" : ""}${Number(g.change_pct).toFixed(2)}%</b><i style="width:${Math.max(4, Math.abs(g.change_pct) / topMove * 100)}%"></i></span></td>
+      <td class="n">${abbr(g.volume)}</td><td class="n">${abbr(g.market_cap)}</td><td class="n">${abbr(fl)}</td>
+      <td class="n ${hs.length ? "halt" : "mut"}">${hs.length}</td>
+      <td>${halted ? '<span class="tag halted">Halted</span>' : '<span class="mut">Trading</span>'}</td>
+      <td class="src">${esc(g.source || "")}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="empty">No stocks match these filters. Lower the move or volume, or reset the filters.</td></tr>`;
 
-  // ---- halts window ----
+  // ---- halts ----
   const gmap = Object.fromEntries(G.map((g) => [g.symbol, g]));
   const allowed = new Set(fg.map((g) => g.symbol));
   const syms = Object.keys(bySym).filter((s) => $("all").checked || allowed.has(s));
   const rows = syms.map((s) => ({ s, list: bySym[s], last: bySym[s][0] })).sort((a, b) => b.last.halt_epoch - a.last.halt_epoch);
 
-  $("m2").textContent = `${rows.length} symbols · halts feed ${ago(STATUS.halts)}`;
-  $("b2").innerHTML = rows.map(({ s, list, last }) => {
+  const calc = ({ s, list, last }) => {
     const g = gmap[s], inf = INFO[s] || {};
     const price = g?.price ?? last.pause_price;
     const pct = price ? luldPct(price) : null;
     const halted = isHalted(last);
     const end = last.resume_epoch || last.timer_end_epoch;
     const left = halted && end ? Math.max(0, end - now) : 0;
-    const mm = String(Math.floor(left/60000)).padStart(2,"0"), ss = String(Math.floor(left/1000)%60).padStart(2,"0");
-    const timer = halted ? (left > 0 ? `<span class="timer">${mm}:${ss}</span>` : `<span class="timer">00:00 · awaiting resume</span>`) : `<span class="mut">–</span>`;
     const up = g ? g.change_pct >= 0 : (inf.prev_close && last.pause_price ? last.pause_price >= inf.prev_close : null);
-    const dir = up == null ? "–" : `<span class="pill ${up ? "up" : "dn"}">${up ? "↗ UP" : "↘ DOWN"}</span>`;
-    // Nasdaq/NYSE publish no free float: shares outstanding if present, else Nasdaq market cap / price
+    // Nasdaq/NYSE publish no free float: shares outstanding if present, else market cap / price
     const float = inf.shares_outstanding ?? (price && inf.market_cap ? inf.market_cap / price : (g && g.price && g.market_cap ? g.market_cap / g.price : null));
-    return `<tr class="${halted ? "halted" : ""}">
-      <td><div class="sym">${s}</div><div class="nm">${last.name || ""} · ${last.market || ""}</div></td>
-      <td>${dir}</td><td class="mut">${last.reason}</td>
-      <td><b>${px(price)}</b></td><td class="mut">${px(last.pause_price)}</td>
-      <td>${pct ? `<div class="up">↑ ${px(price*(1+pct))} <span class="mut">(${(pct*100).toFixed(1)}%)</span></div><div class="dn">↓ ${px(price*(1-pct))}</div>` : "–"}</td>
-      <td>${abbr(float)}</td><td>${abbr(g?.volume)}</td>
-      <td class="warn">${list.length}</td>
-      <td>${t12(last.halt_time)}</td><td>${timer}</td>
-      <td class="${halted ? "mut" : "up"}">${halted ? "–" : t12(last.resume_time)}</td>
-      <td class="${halted ? "st-halted" : "st-resumed"}">${halted ? "HALTED" : "✓ RESUMED"}</td></tr>`;
-  }).join("") || `<tr><td colspan="13" class="mut">No LUDP halts to show.</td></tr>`;
+    return { s, list, last, g, price, pct, halted, left, up, float,
+      hi: pct ? price * (1 + pct) : null, lo: pct ? price * (1 - pct) : null };
+  };
+  const R = rows.map(calc);
+  const live = R.filter((r) => r.halted);
+
+  $("m2").textContent = `${R.length} stocks, ${live.length} halted now`;
+
+  $("tiles").innerHTML = live.length
+    ? `<div class="tiles">${live.map((r) => {
+        const mm = String(Math.floor(r.left/60000)).padStart(2,"0"), ss = String(Math.floor(r.left/1000)%60).padStart(2,"0");
+        const wait = r.left <= 0;
+        return `<article class="tile" aria-label="${esc(r.s)} halted">
+          <div class="row"><span class="sym">${esc(r.s)}</span><span class="px">${px(r.price)}</span></div>
+          <div class="who">${esc(r.last.name)}</div>
+          <div class="clock ${wait ? "wait" : ""}" ${wait ? "" : `aria-label="${mm} minutes ${ss} seconds left"`}>${wait ? "Waiting for resume" : `${mm}:${ss}`}</div>
+          <div class="drain"><i style="width:${Math.min(100, r.left / 300000 * 100)}%"></i></div>
+          <div class="facts"><div>Halted at<b>${t12(r.last.halt_time)}</b></div><div>Halt today<b>#${r.list.length}</b></div>
+            <div class="wide"><span>Bands</span><b>${r.lo ? px(r.lo) : "–"} to ${r.hi ? px(r.hi) : "–"}</b></div></div>
+        </article>`; }).join("")}</div>`
+    : `<div class="none">Nothing is halted right now. Resumed halts stay in the table below for the whole day.</div>`;
+
+  $("b2").innerHTML = R.map((r) => {
+    const dir = r.up == null ? "–" : `<span class="tag ${r.up ? "up" : "dn"}">${r.up ? "Up" : "Down"}</span>`;
+    return `<tr class="${r.halted ? "on" : ""}">
+      <td><div class="sym">${esc(r.s)}</div><div class="nm">${esc(r.last.name)}${r.last.market ? " on " + esc(r.last.market) : ""}</div></td>
+      <td>${dir}</td>
+      <td class="n"><b>${px(r.price)}</b></td><td class="n mut">${px(r.last.pause_price)}</td>
+      <td>${r.pct ? `<span class="band n"><span class="up">${px(r.hi)}</span><span class="dn">${px(r.lo)}</span><small>${(r.pct*100).toFixed(1)}% bands</small></span>` : "–"}</td>
+      <td class="n">${abbr(r.float)}</td><td class="n">${abbr(r.g?.volume)}</td>
+      <td class="n halt">${r.list.length}</td>
+      <td class="n">${t12(r.last.halt_time)}</td>
+      <td class="n ${r.halted ? "mut" : "up"}">${r.halted ? "–" : t12(r.last.resume_time)}</td>
+      <td>${r.halted ? '<span class="tag halted">Halted</span>' : '<span class="tag ok">Resumed</span>'}</td></tr>`;
+  }).join("") || `<tr><td colspan="11" class="empty">No LUDP halts yet. A stock appears here within seconds of its first halt. To see halts for any stock, tick "Include stocks outside my filters".</td></tr>`;
 }
 
 loadFilters();
