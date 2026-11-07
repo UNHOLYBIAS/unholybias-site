@@ -1,318 +1,171 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Halt Scanner</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gainers + LUDP Halts</title>
 <style>
-  :root{
-    --bg:#0a0d12; --surface:#11151c; --surface-raised:#151a22; --border:#1f2530;
-    --text:#e7ebf1; --dim:#808a9c; --dim-2:#5b6474;
-    --amber:#f0a93d; --teal:#38c6b0; --green:#37d67a; --red:#ff5c6c;
-    --sans:'Sora',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,Menlo,monospace;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
-  body{padding:28px 28px 48px;}
-
-  /* ---- Header ---- */
-  .header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:22px;flex-wrap:wrap;gap:10px;}
-  .brand{display:flex;align-items:center;gap:10px;}
-  .brand .mark{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(240,169,61,.15);
-    animation:pulse 2.2s ease-in-out infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
-  .brand h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em;}
-  .meta{font-family:var(--mono);font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:16px;}
-  .meta .sep{width:1px;height:12px;background:var(--border);}
-
-  /* ---- Stat strip (hero) ---- */
-  .stats{display:flex;gap:28px;padding:18px 22px;background:var(--surface-raised);border:1px solid var(--border);
-    border-radius:12px;margin-bottom:22px;flex-wrap:wrap;}
-  .stat .n{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;letter-spacing:-.01em;}
-  .stat .l{font-size:12px;color:var(--dim);margin-top:5px;}
-  .stat.active .n{color:var(--amber);}
-  .stat.busiest .n{font-size:20px;}
-
-  /* ---- Table ---- */
-  .wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-  .scroll{overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1180px;}
-  thead th{position:sticky;top:0;text-align:left;color:var(--dim);font-weight:500;font-size:12.5px;
-    padding:13px 16px;background:var(--surface-raised);border-bottom:1px solid var(--border);white-space:nowrap;z-index:1;}
-  thead th.num{text-align:right;}
-  tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;}
-  tbody tr.data-row{background:var(--surface);cursor:pointer;transition:background-color .12s;
-    border-left:3px solid transparent;}
-  tbody tr.data-row.st-halted{border-left-color:var(--amber);}
-  tbody tr.data-row.st-resumed{border-left-color:var(--teal);}
-  tbody tr.data-row:hover{background:#161c25;}
-  tbody tr:last-child td{border-bottom:none;}
-  .num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;}
-
-  .sym-cell{display:flex;align-items:center;gap:10px;}
-  .sym-box .sym{font-weight:600;font-size:14.5px;letter-spacing:-.01em;}
-  .sym-box .name{display:block;color:var(--dim);font-size:11.5px;margin-top:1px;max-width:130px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .copy-ic{color:var(--dim-2);font-size:13px;flex-shrink:0;}
-
-  .dir{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:12px;font-weight:600;}
-  .dir-down{background:rgba(255,92,108,.13);color:var(--red);}
-  .dir-up{background:rgba(55,214,122,.13);color:var(--green);}
-  .dir-na{background:rgba(128,138,156,.1);color:var(--dim);}
-
-  .reason{color:var(--amber);font-weight:600;font-family:var(--mono);font-size:12.5px;}
-  .chg.pos{color:var(--green);} .chg.neg{color:var(--red);}
-
-  .band{display:flex;flex-direction:column;gap:2px;font-size:12px;align-items:flex-end;}
-  .band .up{color:var(--green);} .band .down{color:var(--red);}
-
-  .halts-badge{color:var(--amber);font-weight:600;}
-
-  .status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;}
-  .status .dot{width:6px;height:6px;border-radius:50%;}
-  .status-halted{color:var(--amber);} .status-halted .dot{background:var(--amber);}
-  .status-resumed{color:var(--teal);} .status-resumed .dot{background:var(--teal);}
-
-  .chev{color:var(--dim-2);font-size:14px;text-align:center;}
-  .empty{padding:40px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:13px;}
-
-  tr.detail-row td{background:#0d1117;cursor:default;white-space:normal;}
-  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;padding:4px 6px;}
-  .detail-grid div span{display:block;color:var(--dim);font-size:11px;margin-bottom:3px;}
-  .detail-grid div b{font-family:var(--mono);font-weight:500;font-size:13px;}
-
-  @media (prefers-reduced-motion: reduce){ .mark{animation:none;} }
+  :root{--bg:#0b0d10;--panel:#111418;--line:#1e2329;--tx:#e6e9ee;--mut:#8a93a0;--up:#2ecc71;--dn:#ff5c5c;--warn:#f5b301}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+  .win{flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:1px solid var(--line)}
+  .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .bar h2{margin:0;font-size:14px;letter-spacing:.04em}
+  .sp{flex:1}
+  .bar label{color:var(--mut);font-size:12px}
+  .bar select{width:130px !important}
+  .bar input[type=number],.bar select{width:90px;background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+  .meta{color:var(--mut);font-size:12px}
+  .scroll{overflow:auto;flex:1}
+  table{width:100%;border-collapse:collapse}
+  th{position:sticky;top:0;background:var(--panel);color:var(--mut);font-weight:600;text-align:right;padding:8px 10px;font-size:12px;white-space:nowrap}
+  td{padding:8px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  .sym{font-weight:700;font-family:ui-monospace,Menlo,monospace}
+  .nm{color:var(--mut);font-size:12px;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  .up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--mut)}.warn{color:var(--warn)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+  .pill.up{background:#12301f}.pill.dn{background:#351616}
+  .st-halted{color:var(--dn);font-weight:700}.st-resumed{color:var(--up);font-weight:700}
+  .timer{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--warn)}
+  tr.halted{background:#2a1214}
+  .err{color:var(--dn);padding:10px 14px}
 </style>
 </head>
 <body>
-  <div class="header">
-    <div class="brand">
-      <span class="mark"></span>
-      <h1>Halt Scanner</h1>
-    </div>
-    <div class="meta">
-      <span id="status">connecting</span>
-      <span class="sep"></span>
-      <span id="clock"></span>
-    </div>
-  </div>
 
-  <div class="stats">
-    <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Halts today</div></div>
-    <div class="stat active"><div class="n" id="stat-active">—</div><div class="l">Still halted</div></div>
-    <div class="stat busiest"><div class="n" id="stat-busiest">—</div><div class="l">Busiest symbol</div></div>
+<section class="win">
+  <div class="bar">
+    <h2>GAINERS</h2>
+    <label>Min price $ <input id="fp" type="number" value="1" step="0.1"></label>
+    <label>Min move % <input id="fc" type="number" value="30"></label>
+    <label>Min volume <input id="fv" type="number" value="300000"></label>
+    <span class="sp"></span>
+    <span class="meta" id="m1"></span>
   </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Symbol</th><th>Price</th><th>Change</th><th>Volume</th><th>Market Cap</th><th>LUDP halts</th><th>Status</th></tr></thead>
+    <tbody id="b1"></tbody>
+  </table><div class="err" id="e1"></div></div>
+</section>
 
-  <div class="wrap">
-    <div class="scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Symbol</th><th>Direction</th><th>Reason</th>
-            <th class="num">Price</th><th class="num">Chg %</th><th class="num">Bands</th>
-            <th class="num">Volume</th><th class="num">Mkt cap</th><th class="num">Halts</th>
-            <th>Halt time</th><th>Resume</th><th>Status</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="body"><tr><td class="empty" colspan="13">Loading…</td></tr></tbody>
-      </table>
-    </div>
+<section class="win">
+  <div class="bar">
+    <h2>HALTS · LUDP only</h2>
+    <label><input id="all" type="checkbox"> show every LUDP halt (not only gainers)</label>
+    <label>LULD band above $3
+      <select id="band"><option value="0.05">5% (Tier 1)</option><option value="0.10">10% (Tier 2)</option></select>
+    </label>
+    <span class="sp"></span>
+    <span class="meta" id="m2"></span>
   </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Symbol</th><th>Direction</th><th>Reason</th><th>Price</th><th>Halt Px</th><th>LULD Bands</th><th>Float</th><th>Volume</th><th>Halts</th><th>Halt Time (ET)</th><th>5-min timer</th><th>Resume (ET)</th><th>Status</th></tr></thead>
+    <tbody id="b2"></tbody>
+  </table><div class="err" id="e2"></div></div>
+</section>
 
 <script>
-  // ---- Configure before deploying ----
-  const SUPABASE_URL = "https://pmdxtxhllzmwbtqfxabl.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_ee1knfT93ylDtnZKXnWJWw_bHMPEXB1";
-  // -------------------------------------
-  // Price / Chg% / Volume / Market cap / Direction all come from the
-  // `halts` table directly (written server-side by the halt-scraper Edge
-  // Function using Nasdaq's own quote + summary APIs) — no client-side
-  // API calls or rate limits to manage here.
+// ====== CONFIG (your Supabase project; anon key is public + read-only by RLS) ======
+const SUPABASE_URL = "https://qqxnddhtrntwlzkigyyo.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxeG5kZGh0cm50d2x6a2lneXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5ODU4MTksImV4cCI6MjEwOTU2MTgxOX0.dKBL2QK7WYCSNMCbvRxqh1rBh6LxRIaBnAcSozuxM8A";
+const POLL_MS = 5000;
+// ===================================================================================
 
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const statusEl = document.getElementById("status");
-  const clockEl = document.getElementById("clock");
-  const bodyEl = document.getElementById("body");
-  const statTotalEl = document.getElementById("stat-total");
-  const statActiveEl = document.getElementById("stat-active");
-  const statBusiestEl = document.getElementById("stat-busiest");
+const $ = (id) => document.getElementById(id);
+const rest = (path) =>
+  fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } })
+    .then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.message || r.status); return j; });
 
-  // LULD band from the halt's reference (pause threshold) price. Nasdaq's
-  // real tiering (5%/10%/20%, price-tier and time-of-day dependent) isn't
-  // in the feed, so this uses the standard 5% Tier-1 band as an approximation.
-  function bandFromThreshold(threshold, bandPct = 0.05){
-    if (threshold == null) return null;
-    const up = threshold * (1 + bandPct);
-    const down = threshold * (1 - bandPct);
-    return { up, down, pct: bandPct * 100 };
-  }
+const abbr = (n) => n == null ? "–" : n >= 1e12 ? (n/1e12).toFixed(2)+"T" : n >= 1e9 ? (n/1e9).toFixed(2)+"B" : n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(Math.round(n));
+const px = (n) => n == null ? "–" : "$" + Number(n).toFixed(n < 1 ? 4 : 2);
+const t12 = (t) => { if (!t) return "–"; const [h,m,s]=t.split(":"); const H=+h; return `${((H+11)%12)+1}:${m}:${String(parseInt(s||0)).padStart(2,"0")} ${H>=12?"PM":"AM"}`; };
+const etDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+const luldPct = (p) => p > 3 ? +$("band").value : p >= 0.75 ? 0.20 : Math.min(0.15 / p, 0.75);
 
-  const etFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
-  });
-  const fmtEt = (iso) => iso ? etFmt.format(new Date(iso)) : "—";
-  const fmtVol = (v) => v == null ? "—" : v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(1)+"K" : String(v);
-  const fmtPrice = (p) => p == null ? "—" : "$" + Number(p).toFixed(2);
-  const fmtCap = (v) => {
-    if (v == null) return "—";
-    if (v >= 1e12) return "$" + (v/1e12).toFixed(2) + "T";
-    if (v >= 1e9)  return "$" + (v/1e9).toFixed(2) + "B";
-    if (v >= 1e6)  return "$" + (v/1e6).toFixed(1) + "M";
-    return "$" + v;
-  };
+let G = [], H = [], INFO = {}, STATUS = {};
 
-  function directionBadge(changePct){
-    if (changePct == null) return '<span class="dir dir-na">— n/a</span>';
-    if (changePct > 0) return '<span class="dir dir-up">▲ up</span>';
-    if (changePct < 0) return '<span class="dir dir-down">▼ down</span>';
-    return '<span class="dir dir-na">— n/a</span>';
-  }
+async function poll() {
+  try {
+    // show the latest trading day that has data (works on weekends too)
+    const lastG = await rest("gainers?select=trade_day&order=trade_day.desc&limit=1");
+    const day = lastG[0]?.trade_day || etDay();
+    const lastH = await rest("ludp_halts?select=halt_day&order=halt_day.desc&limit=1");
+    const hday = lastH[0]?.halt_day || day;
+    [G, H, STATUS] = await Promise.all([
+      rest(`gainers?trade_day=eq.${day}&select=*&order=change_pct.desc`),
+      rest(`ludp_halts?halt_day=eq.${hday}&select=*&order=halt_epoch.desc`),
+      rest("scrape_status?select=*").then((r) => Object.fromEntries(r.map((x) => [x.job, x]))),
+    ]);
+    const syms = [...new Set(H.map((h) => h.symbol))];
+    INFO = syms.length ? Object.fromEntries((await rest(`symbol_info?symbol=in.(${syms.join(",")})&select=*`)).map((x) => [x.symbol, x])) : {};
+    $("e1").textContent = $("e2").textContent = "";
+    render();
+  } catch (e) { $("e1").textContent = "Error: " + e.message; }
+}
 
-  function statusBadge(status){
-    return status === "halted"
-      ? '<span class="status status-halted"><span class="dot"></span>Halted</span>'
-      : '<span class="status status-resumed"><span class="dot"></span>Resumed</span>';
-  }
+const ago = (s) => s ? Math.max(0, Math.round((Date.now() - Date.parse(s.last_run)) / 1000)) + "s ago" : "never";
+function filtered() {
+  const p = +$("fp").value, c = +$("fc").value, v = +$("fv").value;
+  return G.filter((g) => g.price >= p && g.change_pct >= c && g.volume >= v);
+}
 
-  // Per-symbol halt count for the displayed trading day, computed from the
-  // same rows already fetched for that date (so it matches the Friday
-  // fallback on weekends automatically, no separate query needed).
-  function computeHaltCounts(rows){
-    const counts = {};
-    for (const r of rows) counts[r.symbol] = (counts[r.symbol] ?? 0) + 1;
-    return counts;
-  }
+function render() {
+  const fg = filtered();
+  const bySym = {};
+  for (const h of H) (bySym[h.symbol] ||= []).push(h);
+  const now = Date.now();
+  const isHalted = (h) => !(h.resume_epoch && h.resume_epoch <= now);
 
-  function renderStats(rows, haltCounts){
-    statTotalEl.textContent = rows.length;
-    statActiveEl.textContent = rows.filter(r => r.status === "halted").length;
-    let busiestSymbol = "—", busiestCount = 0;
-    for (const [sym, count] of Object.entries(haltCounts)){
-      if (count > busiestCount){ busiestSymbol = sym; busiestCount = count; }
-    }
-    statBusiestEl.textContent = busiestCount > 1 ? `${busiestSymbol} · ${busiestCount}×` : busiestSymbol;
-  }
+  $("m1").textContent = `${fg.length} match / ${G.length} scanned · scraper ${ago(STATUS.gainers)}`;
+  $("b1").innerHTML = fg.map((g) => {
+    const hs = bySym[g.symbol] || [];
+    const last = hs[0];
+    const halted = last && isHalted(last);
+    return `<tr class="${halted ? "halted" : ""}">
+      <td><div class="sym">${g.symbol}</div><div class="nm">${g.name || ""}</div></td>
+      <td>${px(g.price)}</td><td class="up">+${Number(g.change_pct).toFixed(2)}%</td>
+      <td>${abbr(g.volume)}</td><td>${abbr(g.market_cap)}</td>
+      <td class="${hs.length ? "warn" : "mut"}">${hs.length}</td>
+      <td>${halted ? '<span class="st-halted">HALTED</span>' : '<span class="mut">trading</span>'}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="mut">No stocks match the filter.</td></tr>`;
 
-  function detailRowHtml(r, colspan){
-    return `<tr class="detail-row" data-detail-for="${r.symbol}-${r.halt_time}" style="display:none;">
-      <td colspan="${colspan}">
-        <div class="detail-grid">
-          <div><span>Company</span><b>${r.issue_name ?? "—"}</b></div>
-          <div><span>Market</span><b>${r.market ?? "—"}</b></div>
-          <div><span>Reference price</span><b>${fmtPrice(r.pause_threshold_price)}</b></div>
-          <div><span>Halt date</span><b>${r.halt_date ?? "—"}</b></div>
-          <div><span>Resumption quote</span><b>${fmtEt(r.resumption_quote_time)}</b></div>
-          <div><span>Resumption trade</span><b>${fmtEt(r.resumption_trade_time)}</b></div>
-        </div>
-      </td>
-    </tr>`;
-  }
+  const gmap = Object.fromEntries(G.map((g) => [g.symbol, g]));
+  const allowed = new Set(fg.map((g) => g.symbol));
+  const syms = Object.keys(bySym).filter((s) => $("all").checked || allowed.has(s));
+  const rows = syms.map((s) => ({ s, list: bySym[s], last: bySym[s][0] })).sort((a, b) => b.last.halt_epoch - a.last.halt_epoch);
 
-  // Which trading day to show: today (ET) on a weekday, or last Friday's
-  // session when viewed over the weekend (Nasdaq doesn't trade Sat/Sun,
-  // so "today" would otherwise show nothing).
-  function targetTradingDateEt(){
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short",
-    }).formatToParts(new Date());
-    const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
-    let d = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)));
-    const weekday = p.weekday; // "Mon".."Sun"
-    if (weekday === "Sat") d.setUTCDate(d.getUTCDate() - 1);      // -> Friday
-    else if (weekday === "Sun") d.setUTCDate(d.getUTCDate() - 2); // -> Friday
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(d.getUTCDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
+  $("m2").textContent = `${rows.length} symbols · halts feed ${ago(STATUS.halts)}`;
+  $("b2").innerHTML = rows.map(({ s, list, last }) => {
+    const g = gmap[s], inf = INFO[s] || {};
+    const price = g?.price ?? last.pause_price;
+    const pct = price ? luldPct(price) : null;
+    const halted = isHalted(last);
+    const end = last.resume_epoch || last.timer_end_epoch;
+    const left = halted && end ? Math.max(0, end - now) : 0;
+    const mm = String(Math.floor(left/60000)).padStart(2,"0"), ss = String(Math.floor(left/1000)%60).padStart(2,"0");
+    const timer = halted ? (left > 0 ? `<span class="timer">${mm}:${ss}</span>` : `<span class="timer">00:00 · awaiting resume</span>`) : `<span class="mut">–</span>`;
+    const up = g ? g.change_pct >= 0 : (inf.prev_close && last.pause_price ? last.pause_price >= inf.prev_close : null);
+    const dir = up == null ? "–" : `<span class="pill ${up ? "up" : "dn"}">${up ? "↗ UP" : "↘ DOWN"}</span>`;
+    // Nasdaq/NYSE publish no free float: shares outstanding if present, else Nasdaq market cap / price
+    const float = inf.shares_outstanding ?? (price && inf.market_cap ? inf.market_cap / price : (g && g.price ? g.market_cap / g.price : null));
+    return `<tr class="${halted ? "halted" : ""}">
+      <td><div class="sym">${s}</div><div class="nm">${last.name || ""} · ${last.market || ""}</div></td>
+      <td>${dir}</td><td class="mut">${last.reason}</td>
+      <td><b>${px(price)}</b></td><td class="mut">${px(last.pause_price)}</td>
+      <td>${pct ? `<div class="up">↑ ${px(price*(1+pct))} <span class="mut">(${(pct*100).toFixed(1)}%)</span></div><div class="dn">↓ ${px(price*(1-pct))}</div>` : "–"}</td>
+      <td>${abbr(float)}</td><td>${abbr(g?.volume)}</td>
+      <td class="warn">${list.length}</td>
+      <td>${t12(last.halt_time)}</td><td>${timer}</td>
+      <td class="${halted ? "mut" : "up"}">${halted ? "–" : t12(last.resume_time)}</td>
+      <td class="${halted ? "st-halted" : "st-resumed"}">${halted ? "HALTED" : "✓ RESUMED"}</td></tr>`;
+  }).join("") || `<tr><td colspan="13" class="mut">No LUDP halts to show.</td></tr>`;
+}
 
-  async function loadAll(){
-    const tradingDate = targetTradingDateEt();
-    const { data: rows, error } = await sb.from("halts")
-      .select("*").eq("halt_date", tradingDate)
-      .order("halt_time", { ascending: false }).limit(200);
-
-    if (error){ statusEl.textContent = "error"; console.error(error); return; }
-    if (!rows || !rows.length){
-      bodyEl.innerHTML = `<tr><td class="empty" colspan="13">No halts on ${tradingDate}</td></tr>`;
-      statusEl.textContent = "live";
-      statTotalEl.textContent = "0"; statActiveEl.textContent = "0"; statBusiestEl.textContent = "—";
-      return;
-    }
-
-    const haltCounts = computeHaltCounts(rows);
-    renderStats(rows, haltCounts);
-
-    const colspan = 13;
-    bodyEl.innerHTML = rows.map(r => {
-      const band = bandFromThreshold(r.pause_threshold_price);
-      const rowId = `${r.symbol}-${r.halt_time}`;
-      const changePct = r.change_pct;
-      const chgClass = changePct > 0 ? "pos" : changePct < 0 ? "neg" : "";
-      const chgText = changePct == null ? "—" : `${changePct > 0 ? "+" : ""}${Number(changePct).toFixed(1)}%`;
-      return `
-        <tr class="data-row st-${r.status}" data-row-id="${rowId}" title="Click for details">
-          <td>
-            <div class="sym-cell">
-              <span class="copy-ic">▤</span>
-              <div class="sym-box"><span class="sym">${r.symbol}</span><span class="name">${r.issue_name ?? ""}</span></div>
-            </div>
-          </td>
-          <td>${directionBadge(changePct)}</td>
-          <td class="reason">${r.reason_code ?? "—"}</td>
-          <td class="num">${fmtPrice(r.last_price)}</td>
-          <td class="num chg ${chgClass}">${chgText}</td>
-          <td class="num">
-            <div class="band">
-              ${band ? `<span class="up">▲ ${fmtPrice(band.up)}</span><span class="down">▼ ${fmtPrice(band.down)}</span>` : "—"}
-            </div>
-          </td>
-          <td class="num">${fmtVol(r.volume)}</td>
-          <td class="num">${fmtCap(r.market_cap)}</td>
-          <td class="num"><span class="halts-badge">${haltCounts[r.symbol] ?? 1}</span></td>
-          <td class="num">${fmtEt(r.halt_time)}</td>
-          <td class="num">${fmtEt(r.resumption_trade_time)}</td>
-          <td>${statusBadge(r.status)}</td>
-          <td class="chev">›</td>
-        </tr>
-        ${detailRowHtml(r, colspan)}
-      `;
-    }).join("");
-
-    // Wire row click -> toggle detail row
-    bodyEl.querySelectorAll("tr[data-row-id]").forEach(tr => {
-      tr.addEventListener("click", () => {
-        const id = tr.getAttribute("data-row-id");
-        const detail = bodyEl.querySelector(`tr[data-detail-for="${id}"]`);
-        if (detail) detail.style.display = detail.style.display === "none" ? "" : "none";
-      });
-    });
-
-    statusEl.textContent = "live";
-  }
-
-  let debounceTimer = null;
-  function scheduleReload(){
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(loadAll, 1200); // coalesce bursts of row changes into one reload
-  }
-
-  loadAll();
-  sb.channel("halts-feed")
-    .on("postgres_changes", { event: "*", schema: "public", table: "halts" }, scheduleReload)
-    .subscribe();
-
-  setInterval(loadAll, 15000); // full refresh — price/volume/direction are already in the row data
-
-  function tickClock(){
-    clockEl.textContent = etFmt.format(new Date()) + " ET";
-  }
-  tickClock();
-  setInterval(tickClock, 1000);
+["fp","fc","fv","all","band"].forEach((id) => $(id).addEventListener("change", render));
+poll();
+setInterval(poll, POLL_MS);
+setInterval(render, 1000); // live countdown
 </script>
 </body>
 </html>
