@@ -9,12 +9,13 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
   .win{flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:1px solid var(--line)}
-  .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
   .bar h2{margin:0;font-size:14px;letter-spacing:.04em}
   .sp{flex:1}
-  .bar label{color:var(--mut);font-size:12px}
-  .bar select{width:130px !important}
-  .bar input[type=number],.bar select{width:90px;background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+  .bar label{color:var(--mut);font-size:12px;white-space:nowrap}
+  .bar input[type=number]{width:84px;background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+  .bar select{width:130px;background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+  .bar button{background:#1b2027;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
   .meta{color:var(--mut);font-size:12px}
   .scroll{overflow:auto;flex:1}
   table{width:100%;border-collapse:collapse}
@@ -29,6 +30,7 @@
   .st-halted{color:var(--dn);font-weight:700}.st-resumed{color:var(--up);font-weight:700}
   .timer{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--warn)}
   tr.halted{background:#2a1214}
+  .src{font-size:11px;color:var(--mut)}
   .err{color:var(--dn);padding:10px 14px}
 </style>
 </head>
@@ -37,14 +39,20 @@
 <section class="win">
   <div class="bar">
     <h2>GAINERS</h2>
-    <label>Min price $ <input id="fp" type="number" value="1" step="0.1"></label>
-    <label>Min move % <input id="fc" type="number" value="30"></label>
-    <label>Min volume <input id="fv" type="number" value="300000"></label>
+    <label>Price $ min <input id="fp" type="number" value="1" step="0.1"></label>
+    <label>max <input id="fpx" type="number" step="0.1" placeholder="any"></label>
+    <label>Move % min <input id="fc" type="number" value="30"></label>
+    <label>Volume min <input id="fv" type="number" value="300000"></label>
+    <label>Mkt cap $M min <input id="fm1" type="number" placeholder="any"></label>
+    <label>max <input id="fm2" type="number" placeholder="any"></label>
+    <label title="Float is estimated as market cap / price (Nasdaq and NYSE publish no free float)">Float M shares max* <input id="ff" type="number" placeholder="any"></label>
+    <label><input id="honly" type="checkbox"> halted now only</label>
+    <button id="reset">Reset</button>
     <span class="sp"></span>
     <span class="meta" id="m1"></span>
   </div>
   <div class="scroll"><table>
-    <thead><tr><th>Symbol</th><th>Price</th><th>Change</th><th>Volume</th><th>Market Cap</th><th>LUDP halts</th><th>Status</th></tr></thead>
+    <thead><tr><th>Symbol</th><th>Price</th><th>Change</th><th>Volume</th><th>Market Cap</th><th title="market cap / price">Float*</th><th>LUDP halts</th><th>Status</th><th title="SA = stockanalysis.com (incl. extended hours), NQ = Nasdaq screener (regular session)">Src</th></tr></thead>
     <tbody id="b1"></tbody>
   </table><div class="err" id="e1"></div></div>
 </section>
@@ -60,7 +68,7 @@
     <span class="meta" id="m2"></span>
   </div>
   <div class="scroll"><table>
-    <thead><tr><th>Symbol</th><th>Direction</th><th>Reason</th><th>Price</th><th>Halt Px</th><th>LULD Bands</th><th>Float</th><th>Volume</th><th>Halts</th><th>Halt Time (ET)</th><th>5-min timer</th><th>Resume (ET)</th><th>Status</th></tr></thead>
+    <thead><tr><th>Symbol</th><th>Direction</th><th>Reason</th><th>Price</th><th>Halt Px</th><th>LULD Bands</th><th>Float*</th><th>Volume</th><th>Halts</th><th>Halt Time (ET)</th><th>5-min timer</th><th>Resume (ET)</th><th>Status</th></tr></thead>
     <tbody id="b2"></tbody>
   </table><div class="err" id="e2"></div></div>
 </section>
@@ -82,6 +90,23 @@ const px = (n) => n == null ? "–" : "$" + Number(n).toFixed(n < 1 ? 4 : 2);
 const t12 = (t) => { if (!t) return "–"; const [h,m,s]=t.split(":"); const H=+h; return `${((H+11)%12)+1}:${m}:${String(parseInt(s||0)).padStart(2,"0")} ${H>=12?"PM":"AM"}`; };
 const etDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 const luldPct = (p) => p > 3 ? +$("band").value : p >= 0.75 ? 0.20 : Math.min(0.15 / p, 0.75);
+
+// ---- filters: remembered in this browser ----
+const NUM_IDS = ["fp","fpx","fc","fv","fm1","fm2","ff"], CHK_IDS = ["honly","all"];
+const DEFAULTS = { fp: "1", fpx: "", fc: "30", fv: "300000", fm1: "", fm2: "", ff: "" };
+function saveFilters() {
+  try {
+    const o = {}; NUM_IDS.forEach((i) => o[i] = $(i).value); CHK_IDS.forEach((i) => o[i] = $(i).checked); o.band = $("band").value;
+    localStorage.setItem("halts_filters_v2", JSON.stringify(o));
+  } catch {}
+}
+function loadFilters() {
+  try {
+    const o = JSON.parse(localStorage.getItem("halts_filters_v2") || "null"); if (!o) return;
+    NUM_IDS.forEach((i) => { if (i in o) $(i).value = o[i]; }); CHK_IDS.forEach((i) => { if (i in o) $(i).checked = !!o[i]; });
+    if (o.band) $("band").value = o.band;
+  } catch {}
+}
 
 let G = [], H = [], INFO = {}, STATUS = {};
 
@@ -105,31 +130,41 @@ async function poll() {
 }
 
 const ago = (s) => s ? Math.max(0, Math.round((Date.now() - Date.parse(s.last_run)) / 1000)) + "s ago" : "never";
-function filtered() {
-  const p = +$("fp").value, c = +$("fc").value, v = +$("fv").value;
-  return G.filter((g) => g.price >= p && g.change_pct >= c && g.volume >= v);
-}
+const val = (id, dflt) => { const v = $(id).value.trim(); return v === "" || isNaN(+v) ? dflt : +v; };
 
 function render() {
-  const fg = filtered();
+  const now = Date.now();
   const bySym = {};
   for (const h of H) (bySym[h.symbol] ||= []).push(h);
-  const now = Date.now();
   const isHalted = (h) => !(h.resume_epoch && h.resume_epoch <= now);
+  const haltedNow = (s) => !!bySym[s]?.[0] && isHalted(bySym[s][0]);
 
-  $("m1").textContent = `${fg.length} match / ${G.length} scanned · scraper ${ago(STATUS.gainers)}`;
+  // ---- apply the gainers filters ----
+  const minP = val("fp", 0), maxP = val("fpx", Infinity), minC = val("fc", -Infinity), minV = val("fv", 0);
+  const minM = val("fm1", 0) * 1e6, maxM = val("fm2", Infinity) * 1e6, maxF = val("ff", Infinity) * 1e6;
+  const capFilter = minM > 0 || maxM < Infinity, floatFilter = maxF < Infinity;
+  const fg = G.filter((g) =>
+    g.price >= minP && g.price <= maxP && g.change_pct >= minC && g.volume >= minV &&
+    (!capFilter || (g.market_cap != null && g.market_cap >= minM && g.market_cap <= maxM)) &&
+    (!floatFilter || (g.market_cap && g.price && g.market_cap / g.price <= maxF)) &&
+    (!$("honly").checked || haltedNow(g.symbol))
+  );
+
+  $("m1").textContent = `${fg.length} match / ${G.length} stored · scraper ${ago(STATUS.gainers)}`;
   $("b1").innerHTML = fg.map((g) => {
     const hs = bySym[g.symbol] || [];
-    const last = hs[0];
-    const halted = last && isHalted(last);
+    const halted = haltedNow(g.symbol);
+    const fl = g.market_cap && g.price ? g.market_cap / g.price : null;
     return `<tr class="${halted ? "halted" : ""}">
       <td><div class="sym">${g.symbol}</div><div class="nm">${g.name || ""}</div></td>
-      <td>${px(g.price)}</td><td class="up">+${Number(g.change_pct).toFixed(2)}%</td>
-      <td>${abbr(g.volume)}</td><td>${abbr(g.market_cap)}</td>
+      <td>${px(g.price)}</td><td class="${g.change_pct >= 0 ? "up" : "dn"}">${g.change_pct >= 0 ? "+" : ""}${Number(g.change_pct).toFixed(2)}%</td>
+      <td>${abbr(g.volume)}</td><td>${abbr(g.market_cap)}</td><td>${abbr(fl)}</td>
       <td class="${hs.length ? "warn" : "mut"}">${hs.length}</td>
-      <td>${halted ? '<span class="st-halted">HALTED</span>' : '<span class="mut">trading</span>'}</td></tr>`;
-  }).join("") || `<tr><td colspan="7" class="mut">No stocks match the filter.</td></tr>`;
+      <td>${halted ? '<span class="st-halted">HALTED</span>' : '<span class="mut">trading</span>'}</td>
+      <td class="src">${g.source || ""}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="mut">No stocks match the filters.</td></tr>`;
 
+  // ---- halts window ----
   const gmap = Object.fromEntries(G.map((g) => [g.symbol, g]));
   const allowed = new Set(fg.map((g) => g.symbol));
   const syms = Object.keys(bySym).filter((s) => $("all").checked || allowed.has(s));
@@ -148,7 +183,7 @@ function render() {
     const up = g ? g.change_pct >= 0 : (inf.prev_close && last.pause_price ? last.pause_price >= inf.prev_close : null);
     const dir = up == null ? "–" : `<span class="pill ${up ? "up" : "dn"}">${up ? "↗ UP" : "↘ DOWN"}</span>`;
     // Nasdaq/NYSE publish no free float: shares outstanding if present, else Nasdaq market cap / price
-    const float = inf.shares_outstanding ?? (price && inf.market_cap ? inf.market_cap / price : (g && g.price ? g.market_cap / g.price : null));
+    const float = inf.shares_outstanding ?? (price && inf.market_cap ? inf.market_cap / price : (g && g.price && g.market_cap ? g.market_cap / g.price : null));
     return `<tr class="${halted ? "halted" : ""}">
       <td><div class="sym">${s}</div><div class="nm">${last.name || ""} · ${last.market || ""}</div></td>
       <td>${dir}</td><td class="mut">${last.reason}</td>
@@ -162,7 +197,10 @@ function render() {
   }).join("") || `<tr><td colspan="13" class="mut">No LUDP halts to show.</td></tr>`;
 }
 
-["fp","fc","fv","all","band"].forEach((id) => $(id).addEventListener("change", render));
+loadFilters();
+[...NUM_IDS, ...CHK_IDS, "band"].forEach((id) => $(id).addEventListener("change", () => { saveFilters(); render(); }));
+NUM_IDS.forEach((id) => $(id).addEventListener("input", () => { saveFilters(); render(); }));
+$("reset").onclick = () => { NUM_IDS.forEach((i) => $(i).value = DEFAULTS[i]); CHK_IDS.forEach((i) => $(i).checked = false); saveFilters(); render(); };
 poll();
 setInterval(poll, POLL_MS);
 setInterval(render, 1000); // live countdown
